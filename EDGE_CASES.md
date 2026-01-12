@@ -170,7 +170,17 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Notification | Push to customer "Driver is waiting" |
 | Reschedule | Web form to pick new time |
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Full implementation
+- Mobile: `customerNotHomeService.ts` - Wait timer state machine, notification logic
+- Web: `customerNotHome.ts` - Reschedule form, customer notifications
+- Firebase: Real-time wait timer sync, reschedule request storage
+- Tests: `ec11CustomerNotHome.test.ts` - Timer expiry, notifications, reschedule validation
+- Features:
+  - 5-minute wait timer with formatted countdown (MM:SS)
+  - Arrival photo capture with Firebase Storage
+  - Push notification to customer on arrival
+  - Reschedule with date picker (1-7 days ahead) and time slots
+  - Return option available after timer expires
 
 ---
 
@@ -183,7 +193,18 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Customer correction | Tracking page has "Update Address" |
 | Geofence flexibility | 50m radius accommodates GPS errors |
 
-**Status:** ⬜ Partial
+**Status:** ✅ Done - Full implementation
+- Mobile: `addressUpdateService.ts` - Geofence calculations, address validation
+- Web: `addressUpdate.ts` - Customer address correction form
+- Tests: `ec12AddressUpdate.test.ts` - Distance calc, geofence, validation
+- Features:
+  - Haversine distance calculation for accuracy
+  - Dynamic geofence expansion (50m default, 200m max)
+  - GPS accuracy compensation in boundary checks
+  - Address update with 1km maximum correction distance
+  - 60-second cooldown between updates
+  - Validation for coordinates, address length, reason required
+  - Support for RIDER, CUSTOMER, ADMIN address sources
 
 ---
 
@@ -221,7 +242,18 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Location background | iOS background location permission |
 | Failover | Box GPS continues independently |
 
-**Status:** ⬜ TODO - Background location
+**Status:** ✅ Done - Background location service implemented
+- Mobile: `backgroundLocationService.ts` - Expo TaskManager & Location APIs
+- Tests: `ec15BackgroundLocation.test.ts` - Service lifecycle, failover logic
+- Features:
+  - Android foreground service with persistent notification
+  - iOS background location mode with significant change monitoring
+  - Expo TaskManager for cross-platform background task
+  - Automatic service restart on OS termination (health check)
+  - 2-minute staleness threshold for location updates
+  - Failover detection: alerts when both phone AND box GPS unavailable
+  - Power-efficient: balanced accuracy, 10m distance filter
+  - App state monitoring for foreground updates
 
 ---
 
@@ -247,7 +279,9 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 - [ ] 6 wrong OTP attempts (EC-04)
 - [ ] Fill photo queue to limit (EC-10)
 - [ ] Simulate box power loss (EC-03)
-- [ ] Kill app during active tracking (EC-15)
+- [x] Kill app during active tracking (EC-15) ✅ Unit tests pass
+- [x] Customer not home wait timer (EC-11) ✅ Unit tests pass
+- [x] Wrong address geofence expansion (EC-12) ✅ Unit tests pass
 - [ ] Network switch during upload (EC-61)
 - [ ] Captive portal WiFi detection (EC-62)
 - [ ] Two riders at same location (EC-65)
@@ -1156,7 +1190,10 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | EC-06 (Both Offline) | Full offline-first design |
 | EC-07 (Stale OTP) | 4-hour expiry + revocation on cancellation |
 | EC-10 (Queue Full) | MAX_QUEUED_PHOTOS limit |
+| EC-11 (Not Home) | 5min wait timer + photo + notification + reschedule |
+| EC-12 (Wrong Address) | Rider/customer correction + 50m flexible geofence |
 | EC-14 (Timezones) | UTC + server timestamps |
+| EC-15 (App Killed) | Foreground service (Android) + background location (iOS) + box GPS failover |
 | EC-17 (MITM) | Firebase TLS |
 | EC-18 (Tamper) | Reed switch + photo + lockdown |
 | EC-24 (GPS Fail) | Phone GPS redundancy |
