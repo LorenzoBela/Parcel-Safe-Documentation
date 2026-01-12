@@ -1,0 +1,873 @@
+# Edge Cases & Failure Scenarios
+
+Complete list of edge cases that must be bulletproofed for a production-ready delivery system.
+
+---
+
+## 🔴 Critical (Must Handle)
+
+### EC-01: No Signal at Delivery Location
+**Scenario:** Rider arrives at basement/elevator/rural area with no cellular/WiFi.
+
+| Component | Problem | Solution | Status | Verification |
+|-----------|---------|----------|--------|--------------|
+| Box | Can't validate OTP online | OTP pre-cached before trip | ✅ Done | **Simulation** (Mock Offline) |
+| Box | Photo can't upload | Queue to SPIFFS, retry later | ✅ Done | **Unit Test** (Queue Logic) |
+| Phone | Location update fails | Cache locally, sync later | ✅ Done | **Simulation** (Airplane Mode) |
+| Web | No live updates | Show "Last seen X ago" | ✅ Done | **Manual** (Visual Check) |
+
+---
+
+### EC-02: Box Never Received Delivery Assignment
+**Scenario:** Delivery assigned while box was already offline (underground parking).
+
+| Solution | Implementation | Verification |
+|----------|----------------|--------------|
+| Primary | Phone sends OTP via Bluetooth to box | **Feature Test** (BLEPairing) |
+| Backup | Rider calls support for manual override | **Manual** (Dry Run) |
+
+**Status:** ⬜ Requires BLE implementation
+
+---
+
+### EC-03: Box Battery Dies Mid-Delivery
+**Scenario:** Box loses power before customer can pick up.
+
+| Solution | Implementation | Verification |
+|----------|----------------|--------------|
+| Prevention | Low battery warning at 20%, alert at 10% | **Unit Test** (Threshold Logic) |
+| Recovery | OTP remains valid; box unlocks when power restored | **Hardware Test** (Pull Plug) |
+| Fallback | Support can mark delivery complete manually | **Manual** (Admin Panel) |
+
+**Status:** ✅ Done - Prevention(battery UI), Recovery(Firebase sync), Fallback(admin override)
+
+---
+
+### EC-04: Customer Enters Wrong OTP 5 Times
+**Scenario:** Potential unauthorized access attempt.
+
+| Solution | Implementation | Verification |
+|----------|----------------|--------------|
+| Lockout | 5 min lockout after 5 failures | **Unit Test** (Counter Logic) |
+| Alert | Push notification to rider + admin | **Integration** (Firebase Func) |
+| Photo | Capture failed attempts for audit | **Hardware Test** (Trigger Cam) |
+| Override | Admin can reset lockout remotely | **Manual** (Admin Panel) |
+
+**Status:** ⬜ TODO - Add attempt tracking
+
+---
+
+### EC-05: Rider's Phone Dies
+**Scenario:** Only GPS source lost; box still has signal.
+
+| Impact | Severity | Verification |
+|--------|----------|--------------|
+| GPS tracking | ✅ Box continues normally | **Manual** (Turn off Phone) |
+| OTP display | ⚠️ Customer can't see OTP | **Manual** (Check Web Link) |
+| Photo proof | ✅ Box captures independently | **Hardware Test** |
+
+**Solution:** OTP is in tracking link (web) - customer can access from any device.
+
+**Status:** ✅ Already handled
+
+---
+
+### EC-06: Both Box AND Phone Offline
+**Scenario:** Complete communication blackout.
+
+| What Still Works | Why | Verification |
+|------------------|-----|--------------|
+| OTP Validation | Pre-cached locally on box | **Hardware Test** (Faraday Cage/Sim) |
+| Box Unlock | Local comparison, no network | **Hardware Test** |
+| Photo Capture | Saved to SPIFFS | **Unit Test** (Storage Logic) |
+| Solenoid Control | Hardware-level operation | **Hardware Test** |
+
+| What Fails | Mitigation |
+|------------|------------|
+| Live tracking | Customer sees "Last seen" timestamp |
+| Status updates | Sync when either reconnects |
+| Photo upload | Auto-retry queue (up to 5 attempts) |
+
+**Status:** ✅ Handled by offline implementation
+
+---
+
+## 🟡 High Priority
+
+### EC-07: Stale OTP (Delivery Cancelled/Reassigned)
+**Scenario:** Delivery cancelled but box still has old OTP cached.
+
+| Solution | Implementation | Verification |
+|----------|----------------|--------------|
+| Expiry | OTP valid for 4 hours max | **Unit Test** (Time Logic) |
+| Revocation | Box polls Firebase; clears OTP on cancellation | **Integration** (Sync Test) |
+| Offline | If offline when cancelled, OTP works until box reconnects | **Edge Case Acceptance** |
+
+**Status:** ⬜ TODO - Add OTP expiry
+
+---
+
+### EC-08: GPS Spoofing Attack
+**Scenario:** Malicious rider fakes location to skip deliveries.
+
+| Detection | Implementation | Verification |
+|-----------|----------------|--------------|
+| Velocity check | Flag if speed > 200 km/h | **Unit Test** (Math Logic) |
+| Distance jump | Flag if position jumps > 10km in 1 second | **Unit Test** (Math Logic) |
+| Source mismatch | Compare phone vs box GPS for major discrepancies | **Integration** (Data Analysis) |
+
+**Status:** ⬜ TODO - Add anomaly detection
+
+---
+
+### EC-09: Firebase Outage
+**Scenario:** Google Cloud has an outage.
+
+| Component | Fallback | Verification |
+|-----------|----------|--------------|
+| Box | Queue all data locally; retry | **Unit Test** (Queue Rejection) |
+| Phone | Use offline cache | **Simulation** (Block Traffic) |
+| Web | Show cached data with "Updating..." banner | **Simulation** (Offline Mode) |
+
+**Status:** ⬜ Partial - Need web offline mode
+
+---
+
+### EC-10: Photo Storage Full
+**Scenario:** SPIFFS (4MB) filled with unuploaded photos.
+
+| Solution | Implementation |
+|----------|----------------|
+| Limit | Max 10 queued photos (configurable) |
+| Oldest-first delete | If queue full, delete oldest failed upload |
+| Alert | Warn admin if queue reaches 80% |
+
+**Status:** ✅ MAX_QUEUED_PHOTOS = 10
+
+---
+
+## 🟢 Medium Priority
+
+### EC-11: Customer Not Home
+**Scenario:** Rider arrives but nobody to accept delivery.
+
+| Solution | Implementation |
+|----------|----------------|
+| Wait timer | 5 min countdown before return option |
+| Photo proof | Capture photo showing arrival |
+| Notification | Push to customer "Driver is waiting" |
+| Reschedule | Web form to pick new time |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-12: Wrong Address
+**Scenario:** GPS shows rider at location, but it's incorrect address.
+
+| Solution | Implementation |
+|----------|----------------|
+| Rider correction | App allows address update |
+| Customer correction | Tracking page has "Update Address" |
+| Geofence flexibility | 50m radius accommodates GPS errors |
+
+**Status:** ⬜ Partial
+
+---
+
+### EC-13: Multiple Deliveries to Same Location
+**Scenario:** Rider has 3 deliveries to same building.
+
+| Solution | Implementation |
+|----------|----------------|
+| Batch mode | Box can store multiple OTPs |
+| Clear UI | Rider sees list of pending deliveries |
+
+**Status:** ⬜ TODO - Expand OTP storage
+
+---
+
+### EC-14: Time Zone Confusion
+**Scenario:** Server, box, and phone in different timezones.
+
+| Solution | Implementation |
+|----------|----------------|
+| UTC everywhere | All timestamps in UTC |
+| Local display | Convert to local only in UI |
+| Firebase server time | Use .sv timestamp for accuracy |
+
+**Status:** ✅ Using server timestamps
+
+---
+
+### EC-15: App Killed by OS
+**Scenario:** Android/iOS kills background app; phone GPS stops.
+
+| Solution | Implementation |
+|----------|----------------|
+| Foreground service | Android notification keeps app alive |
+| Location background | iOS background location permission |
+| Failover | Box GPS continues independently |
+
+**Status:** ⬜ TODO - Background location
+
+---
+
+## Implementation Priority Matrix
+
+| Priority | Edge Case | Effort | Risk if Unhandled |
+|----------|-----------|--------|-------------------|
+| P0 | EC-01 (No Signal) | Done | Delivery fails |
+| P0 | EC-06 (Both Offline) | Done | Complete failure |
+| P1 | EC-04 (Wrong OTP) | Medium | Security breach |
+| P1 | EC-07 (Stale OTP) | Low | Wrong person opens |
+| P1 | EC-03 (Battery Dies) | Medium | Stuck delivery |
+| P2 | EC-02 (Missed Assignment) | High (BLE) | Rare scenario |
+| P2 | EC-08 (GPS Spoof) | High | Fraud |
+| P3 | Others | Varies | Inconvenience |
+
+---
+
+## Testing Checklist
+
+- [ ] Airplane mode during delivery (EC-01)
+- [ ] Cancel delivery while box offline (EC-07)
+- [ ] 6 wrong OTP attempts (EC-04)
+- [ ] Fill photo queue to limit (EC-10)
+- [ ] Simulate box power loss (EC-03)
+- [ ] Kill app during active tracking (EC-15)
+
+---
+
+## 🔵 Security & Attack Vectors
+
+### EC-16: Replay Attack on OTP
+**Scenario:** Attacker captures OTP transmission, replays later.
+
+| Solution | Implementation |
+|----------|----------------|
+| One-time use | OTP invalidated after successful unlock |
+| Time-bound | OTP only valid during assigned delivery window |
+| Hash verification | OTP hashed with timestamp, can't replay |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-17: Man-in-the-Middle on Location
+**Scenario:** Attacker intercepts Firebase updates, sends fake location.
+
+| Solution | Implementation |
+|----------|----------------|
+| TLS only | All Firebase uses HTTPS |
+| Auth tokens | Only authenticated devices can write |
+| Source verification | Cross-check box vs phone GPS |
+
+**Status:** ✅ Firebase uses TLS
+
+---
+
+### EC-18: Physical Tampering - Box Pried Open
+**Scenario:** Someone forces the box open without OTP.
+
+| Solution | Implementation |
+|----------|----------------|
+| Tamper switch | Magnetic reed switch on door (Pin 27) |
+| Alert | Immediate push (Mobile) + Banner (Web) |
+| Photo | Auto-capture on interrupt |
+| Lockdown | Disable all further unlocks until reset |
+
+**Status:** ✅ Done - Hardware logic added, Mobile/Web alerts active
+
+---
+
+### EC-19: Stolen Phone with Rider App
+**Scenario:** Thief steals rider's phone, has access to delivery app.
+
+| Solution | Implementation |
+|----------|----------------|
+| Biometric lock | Require FaceID/Fingerprint for sensitive actions |
+| Session timeout | Auto-logout after 30 min inactive |
+| Remote wipe | Admin can revoke device access |
+| PIN for OTP reveal | Secondary PIN to view customer OTP |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-20: Delivery ID Collision
+**Scenario:** Two deliveries accidentally get same OTP.
+
+| Solution | Implementation |
+|----------|----------------|
+| Unique generation | OTP tied to delivery_id + box_id + timestamp |
+| Collision check | Backend rejects duplicate OTPs |
+
+**Status:** ⬜ Check backend logic
+
+---
+
+## 🟤 Hardware Failure Modes
+
+### EC-21: Solenoid Stuck Closed
+**Scenario:** Mechanical failure - lock won't open.
+
+| Solution | Implementation |
+|----------|----------------|
+| Manual override | Physical key slot (emergency) |
+| Power cycle | Retry solenoid 3x with delays |
+| Alert | Ping support automatically |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-22: Solenoid Stuck Open
+**Scenario:** Lock won't engage - box stays unlocked.
+
+| Solution | Implementation |
+|----------|----------------|
+| Detection | Check lock feedback sensor |
+| Alert | Immediate notification |
+| Disable deliveries | Mark box as "Out of Service" |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-23: Camera Failure
+**Scenario:** Photo capture fails - no proof of delivery.
+
+| Solution | Implementation |
+|----------|----------------|
+| Retry | 3 capture attempts |
+| Fallback | Allow delivery without photo (flag for review) |
+| Placeholder | Save metadata even if image fails |
+| Alert | Notify admin of camera issues |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-24: GPS Module Failure
+**Scenario:** Box GPS returns invalid/frozen coordinates.
+
+| Detection | Implementation |
+|-----------|----------------|
+| Stale data | Same coords for >5 min while moving |
+| Invalid range | Lat/lng outside valid bounds |
+| Phone fallback | Auto-switch to phone GPS |
+
+**Status:** ✅ Redundancy system handles this
+
+---
+
+### EC-25: ESP32 Brownout/Reboot Mid-Delivery
+**Scenario:** Power dip causes ESP32 to restart.
+
+| Solution | Implementation |
+|----------|----------------|
+| Persistent state | Save delivery state to SPIFFS |
+| Auto-resume | Load state on boot, continue delivery |
+| Status report | Send "box_rebooted" event to Firebase |
+
+**Status:** ⬜ TODO
+
+---
+
+## 🌡️ Environmental Factors
+
+### EC-26: Extreme Heat (>60°C)
+**Scenario:** Box in direct sun in Philippines summer.
+
+| Solution | Implementation |
+|----------|----------------|
+| Temp sensor | Monitor internal temperature |
+| Throttle | Reduce update frequency to save power |
+| Alert | Warn if electronics at risk |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-27: Water Ingress / Heavy Rain
+**Scenario:** Water damages electronics during monsoon.
+
+| Prevention | Implementation |
+|------------|----------------|
+| IP65 rating | Sealed enclosure |
+| Moisture sensor | Detect water ingress early |
+| Corrosion check | Periodic health check |
+
+**Status:** ⬜ Hardware design consideration
+
+---
+
+### EC-28: Vibration Damage (Motorcycle)
+**Scenario:** Constant vibration loosens connections.
+
+| Prevention | Implementation |
+|------------|----------------|
+| Secure mounts | Lock-tite on screws |
+| Connector strain relief | Proper cable management |
+| Vibration dampening | Rubber mounts for boards |
+
+**Status:** ⬜ Hardware design
+
+---
+
+## 👥 Multi-Party Edge Cases
+
+### EC-29: Customer Shares OTP Publicly
+**Scenario:** Customer posts OTP on social media accidentally.
+
+| Solution | Implementation |
+|----------|----------------|
+| OTP regeneration | Allow rider/customer to request new OTP |
+| Time limit | OTP expires in 4 hours |
+| Delivery cancellation | Customer can cancel if compromised |
+
+**Status:** ⬜ TODO - OTP refresh API
+
+---
+
+### EC-30: Rider Delivers to Wrong Person
+**Scenario:** Wrong person receives OTP, opens box.
+
+| Mitigation | Implementation |
+|------------|----------------|
+| Photo proof | Customer sees who unlocked |
+| Time/location logging | Full audit trail |
+| Recipient confirmation | Customer marks "I received it" |
+
+**Status:** ⬜ Partial - photo exists
+
+---
+
+### EC-31: Disputed Delivery - "I Never Received It"
+**Scenario:** Customer claims non-delivery despite photo.
+
+| Evidence Chain | Implementation |
+|----------------|----------------|
+| GPS at unlock | Prove box was at location |
+| Timestamp | Exact time of unlock |
+| Photo | Face/hands of person who unlocked |
+| OTP entry log | Prove correct code was entered |
+
+**Status:** ✅ Photo + GPS + timestamp logged
+
+---
+
+### EC-32: Rider Cancels After Pickup
+**Scenario:** Rider picks up package, then cancels delivery.
+
+| Solution | Implementation |
+|----------|----------------|
+| Lock box | OTP changes on status change |
+| Alert | Notify sender of cancellation |
+| Return flow | Generate "return OTP" for sender |
+
+**Status:** ⬜ TODO - Cancellation flow
+
+---
+
+## ⚡ Race Conditions & Timing
+
+### EC-33: Two People Enter OTP Simultaneously
+**Scenario:** Customer types OTP, rider also types (testing).
+
+| Solution | Implementation |
+|----------|----------------|
+| Debounce | 500ms lockout between attempts |
+| Single unlock | Only triggers once per OTP |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-34: OTP Entered While Box Updating
+**Scenario:** Box downloading new OTP from Firebase, old one entered.
+
+| Solution | Implementation |
+|----------|----------------|
+| Accept both | During update window, accept old OR new |
+| Atomic switch | Lock keypad during OTP refresh |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-35: Delivery Status Update Lost
+**Scenario:** Box unlocks, but status update to "COMPLETED" fails.
+
+| Solution | Implementation |
+|----------|----------------|
+| Retry queue | Queue status updates like photos |
+| Reconciliation | Backend marks complete on photo receipt |
+| Fallback | Rider can manually mark complete in app |
+
+**Status:** ⬜ TODO
+
+---
+
+## 📱 Mobile App Specific
+
+### EC-36: Multiple Riders Logged Into Same Account
+**Scenario:** Rider shares credentials, two phones active.
+
+| Solution | Implementation |
+|----------|----------------|
+| Single device | Force logout on new login |
+| Device binding | Lock account to one device |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-37: App Update Required Mid-Delivery
+**Scenario:** Force update blocks screen during active delivery.
+
+| Solution | Implementation |
+|----------|----------------|
+| Grace period | Allow completing current delivery |
+| Cache delivery | Show even without latest version |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-38: Push Notification Not Received
+**Scenario:** Customer doesn't know rider arrived.
+
+| Fallback | Implementation |
+|----------|----------------|
+| SMS | Send SMS as backup |
+| Email | Send email notification |
+| Retry | 3 push attempts |
+
+**Status:** ⬜ TODO
+
+## 💰 Financial & Payment Edge Cases
+
+### EC-39: Payment Declined After Pickup
+**Scenario:** COD payment declined, but package already in box.
+
+| Solution | Implementation |
+|----------|----------------|
+| Pre-auth | Verify payment before pickup |
+| Return flow | Generate return OTP for rider |
+| Hold status | Lock box until payment resolved |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-40: Refund Requested After Delivery
+**Scenario:** Customer wants refund but package already delivered.
+
+| Solution | Implementation |
+|----------|----------------|
+| Evidence | Show photo + GPS + OTP log |
+| Return pickup | Schedule return delivery |
+| Dispute flow | Admin panel for resolution |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-41: Rider Pocketing COD Payment
+**Scenario:** Rider collects cash but doesn't report it.
+
+| Solution | Implementation |
+|----------|----------------|
+| Digital only | Prefer GCash/PayMaya |
+| Amount confirmation | Customer confirms amount in app |
+| Random audits | Admin spotchecks |
+
+**Status:** ⬜ TODO - Audit system
+
+---
+
+## ⚖️ Legal & Regulatory
+
+### EC-42: GDPR/Data Privacy - Location History
+**Scenario:** Customer requests deletion of all their data.
+
+| Compliance | Implementation |
+|------------|----------------|
+| Data export | Download all delivery history |
+| Right to delete | Anonymize, don't hard delete |
+| Retention policy | Auto-purge after 1 year |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-43: Photo Contains PII
+**Scenario:** Photo accidentally captures license plate, face of bystander.
+
+| Solution | Implementation |
+|----------|----------------|
+| Blur detection | Auto-blur faces except recipient |
+| Access control | Photo only visible to parties |
+| Time-limited | Auto-delete after 30 days |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-44: Illegal Content in Package
+**Scenario:** Package contains contraband.
+
+| Prevention | Implementation |
+|------------|----------------|
+| No liability clause | ToS coverage |
+| Rider doesn't verify contents | Not liable |
+| Cooperation with authorities | Clear process |
+
+**Status:** ⬜ Legal/ToS
+
+---
+
+### EC-45: Insurance Claim for Lost Package
+**Scenario:** Package lost, customer claims insurance.
+
+| Evidence Required | Implementation |
+|-------------------|----------------|
+| Pickup photo | Timestamp + GPS |
+| Transit history | All location updates |
+| Delivery attempt log | What happened |
+
+**Status:** ✅ Partial - audit trail exists
+
+---
+
+## 📊 Data Integrity
+
+### EC-46: Firebase Clock Skew
+**Scenario:** Server timestamp differs from box/phone by minutes.
+
+| Solution | Implementation |
+|----------|----------------|
+| Server time only | Use Firebase .sv timestamp |
+| NTP sync | Box syncs on boot |
+| Tolerance | Accept ±5 min variance |
+
+**Status:** ✅ Using server timestamps
+
+---
+
+### EC-47: Duplicate Delivery Records
+**Scenario:** Same delivery inserted twice due to retry.
+
+| Solution | Implementation |
+|----------|----------------|
+| Idempotency key | delivery_id is unique |
+| Upsert | Update if exists |
+| Deduplication | Backend rejects duplicates |
+
+**Status:** ⬜ Check backend
+
+---
+
+### EC-48: Data Corruption in SPIFFS
+**Scenario:** Flash memory corrupted, queue data lost.
+
+| Solution | Implementation |
+|----------|----------------|
+| Checksums | Validate JSON integrity |
+| Backup | Critical data in RTC memory |
+| Recovery | Re-fetch from Firebase on boot |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-49: Out-of-Order Events
+**Scenario:** "COMPLETED" received before "IN_TRANSIT".
+
+| Solution | Implementation |
+|----------|----------------|
+| State machine | Only valid transitions |
+| Last-write-wins | Use timestamps |
+| Validation | Reject invalid sequences |
+
+**Status:** ⬜ TODO
+
+---
+
+## 🎨 User Experience
+
+### EC-50: Customer Panic - "Where's My Package?"
+**Scenario:** Customer checks every 10 seconds, anxious.
+
+| Solution | Implementation |
+|----------|----------------|
+| Progress indicators | Step-by-step status |
+| ETA countdown | Live estimated time |
+| Calm UI | No error messages unless real |
+
+**Status:** ⬜ Partial
+
+---
+
+### EC-51: Language Barrier
+**Scenario:** Rider speaks Tagalog, customer speaks Mandarin.
+
+| Solution | Implementation |
+|----------|----------------|
+| Multi-language | App + web in multiple languages |
+| Pre-written messages | "I'm at the door" buttons |
+| Translation | Chat translate feature |
+
+**Status:** ⬜ TODO - i18n
+
+---
+
+### EC-52: Accessibility - Blind Customer
+**Scenario:** Customer can't read OTP on screen.
+
+| Solution | Implementation |
+|----------|----------------|
+| Voice readout | TTS for OTP |
+| Large font | Accessibility mode |
+| Phone call | Rider calls to give OTP |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-53: First-Time User Confusion
+**Scenario:** Customer doesn't understand what OTP is.
+
+| Solution | Implementation |
+|----------|----------------|
+| Onboarding | Explain on first delivery |
+| In-context help | "What's this?" tooltips |
+| SMS instruction | Include in arrival SMS |
+
+**Status:** ⬜ TODO
+
+---
+
+## 📈 Scalability & Performance
+
+### EC-54: 1000 Concurrent Deliveries
+**Scenario:** Peak hour, system under load.
+
+| Solution | Implementation |
+|----------|----------------|
+| Connection pooling | Firebase SDK handles |
+| Rate limiting | Max 5 req/sec per box |
+| Load balancing | Multiple regions |
+
+**Status:** ⬜ Load testing needed
+
+---
+
+### EC-55: Firebase Quota Exceeded
+**Scenario:** Hit daily read/write limits.
+
+| Solution | Implementation |
+|----------|----------------|
+| Quota monitoring | Alert at 80% |
+| Local caching | Reduce read frequency |
+| Blaze plan | Pay-as-you-go for prod |
+
+**Status:** ⬜ Monitor
+
+---
+
+### EC-56: Photo Upload Bandwidth
+**Scenario:** Large photos slow down other operations.
+
+| Solution | Implementation |
+|----------|----------------|
+| Compression | 800px max, 60% quality |
+| Chunked upload | Resume on failure |
+| Priority queue | GPS > Status > Photo |
+
+**Status:** ⬜ TODO
+
+---
+
+## 🔄 Lifecycle & Maintenance
+
+### EC-57: Firmware Update Required
+**Scenario:** Security patch must be deployed to all boxes.
+
+| Solution | Implementation |
+|----------|----------------|
+| OTA updates | ESP32 supports OTA |
+| Staged rollout | 10% → 50% → 100% |
+| Rollback | Keep previous version |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-58: Box Decommissioned
+**Scenario:** Box retired, data needs cleanup.
+
+| Solution | Implementation |
+|----------|----------------|
+| Archive | Move to cold storage |
+| Unlink | Remove from rider account |
+| Wipe | Factory reset device |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-59: Rider Quits Mid-Shift
+**Scenario:** Rider goes offline with packages in box.
+
+| Solution | Implementation |
+|----------|----------------|
+| Alert | Ping supervisor |
+| Reassign | Transfer deliveries |
+| Return | GPS shows box location |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-60: Daylight Saving Time Change
+**Scenario:** Clocks shift, scheduled deliveries off.
+
+| Solution | Implementation |
+|----------|----------------|
+| UTC storage | All times in UTC |
+| Timezone DB | Use proper tz library |
+| User's local time | Display only |
+
+**Status:** ✅ UTC everywhere
+
+---
+
+## Summary: Priority Matrix (Final)
+
+| Priority | Count | Edge Cases |
+|----------|-------|------------|
+| 🔴 P0 (Critical) | 4 | EC-01, EC-06, EC-18, EC-31 |
+| 🟡 P1 (High) | 12 | EC-02, EC-03, EC-04, EC-07, EC-19, EC-21, EC-22, EC-39, EC-41, EC-45, EC-48, EC-59 |
+| 🟢 P2 (Medium) | 15 | EC-08, EC-16, EC-23, EC-25, EC-29, EC-32, EC-35, EC-42, EC-46, EC-47, EC-49, EC-54, EC-55, EC-56, EC-57 |
+| 🔵 P3 (Low) | 29+ | All others |
+
+---
+
+## ✅ Already Handled
+
+| Edge Case | How |
+|-----------|-----|
+| EC-01 (No Signal) | Offline OTP + photo queue |
+| EC-06 (Both Offline) | Full offline-first design |
+| EC-10 (Queue Full) | MAX_QUEUED_PHOTOS limit |
+| EC-14 (Timezones) | UTC + server timestamps |
+| EC-17 (MITM) | Firebase TLS |
+| EC-24 (GPS Fail) | Phone GPS redundancy |
+| EC-31 (Disputed) | Photo + GPS + OTP log |
+| EC-46 (Clock Skew) | Firebase server time |
+| EC-60 (DST) | UTC everywhere |
+
+**Total Edge Cases Documented: 60**
