@@ -26,7 +26,10 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Primary | Phone sends OTP via Bluetooth to box | **Feature Test** (BLEPairing) |
 | Backup | Rider calls support for manual override | **Manual** (Dry Run) |
 
-**Status:** ⬜ Requires BLE implementation
+**Status:** ✅ Done - BLE implementation added
+- ESP32 firmware: BLE server with OTP characteristic (`main.cpp`)
+- Mobile app: `bleOtpService.ts` for scanning and OTP transfer
+- Protocol: `OTP:123456:delivery_id:timestamp` format
 
 ---
 
@@ -53,7 +56,11 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Photo | Capture failed attempts for audit | **Hardware Test** (Trigger Cam) |
 | Override | Admin can reset lockout remotely | **Manual** (Admin Panel) |
 
-**Status:** ⬜ TODO - Add attempt tracking
+**Status:** ✅ Done - OTP lockout implemented
+- ESP32 firmware: `incrementOtpAttempt()`, `checkOtpLockout()`, `reportLockoutToFirebase()`
+- Firebase: `LockoutState` interface, `subscribeToLockout()`, `resetLockout()`
+- Tests: `test_ec04_*` in `test_edge_cases.h`, `otpEdgeCases.test.ts`
+- Debounce: 1s cooldown between attempts to prevent brute force
 
 ---
 
@@ -103,7 +110,12 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Revocation | Box polls Firebase; clears OTP on cancellation | **Integration** (Sync Test) |
 | Offline | If offline when cancelled, OTP works until box reconnects | **Edge Case Acceptance** |
 
-**Status:** ⬜ TODO - Add OTP expiry
+**Status:** ✅ Done - OTP expiry & revocation implemented
+- ESP32 firmware: `isOtpValid()`, `clearExpiredOtp()`, `otpIssuedAt` tracking
+- Firebase: `OtpStatus` interface, `subscribeToOtpStatus()`, `revokeOtp()`, `regenerateOtp()`
+- Constants: `OTP_VALIDITY_DURATION = 4 hours` (14400000ms)
+- Tests: `test_ec07_*` in `test_edge_cases.h`, `otpEdgeCases.test.ts`
+- Revocation: `otp_revoked` flag in Firebase triggers immediate invalidation
 
 ---
 
@@ -1139,10 +1151,14 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Edge Case | How |
 |-----------|-----|
 | EC-01 (No Signal) | Offline OTP + photo queue |
+| EC-02 (Missed Assignment) | BLE OTP transfer from phone to box |
+| EC-04 (Wrong OTP 5x) | 5min lockout, photo capture, admin reset |
 | EC-06 (Both Offline) | Full offline-first design |
+| EC-07 (Stale OTP) | 4-hour expiry + revocation on cancellation |
 | EC-10 (Queue Full) | MAX_QUEUED_PHOTOS limit |
 | EC-14 (Timezones) | UTC + server timestamps |
 | EC-17 (MITM) | Firebase TLS |
+| EC-18 (Tamper) | Reed switch + photo + lockdown |
 | EC-24 (GPS Fail) | Phone GPS redundancy |
 | EC-31 (Disputed) | Photo + GPS + OTP log |
 | EC-46 (Clock Skew) | Firebase server time |
