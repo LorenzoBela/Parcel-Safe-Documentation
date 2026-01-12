@@ -646,6 +646,235 @@ Comprehensive list of boundary condition test cases for the Parcel-Safe Smart To
 
 ---
 
+## 🚦 Rate Limiting Boundaries (BC-RATE)
+
+### BC-RATE-01: API Requests = 99/minute
+**Input:** Just under rate limit
+**Expected:** All requests processed normally
+**Component:** Backend
+
+---
+
+### BC-RATE-02: API Requests = 100/minute
+**Input:** Exactly at rate limit
+**Expected:** Request processed, warning logged
+**Component:** Backend
+
+---
+
+### BC-RATE-03: API Requests = 101/minute
+**Input:** Just over rate limit
+**Expected:** 429 Too Many Requests, retry-after header
+**Component:** Backend
+
+---
+
+### BC-RATE-04: Firebase Writes = 999/sec
+**Input:** Just under Firebase limit
+**Expected:** All writes processed
+**Component:** Box (ESP32)
+
+---
+
+### BC-RATE-05: Firebase Writes = 1000/sec
+**Input:** At Firebase quota limit
+**Expected:** Some writes may be delayed
+**Component:** Box (ESP32)
+
+---
+
+## 🔗 Concurrent Connection Boundaries (BC-CONN)
+
+### BC-CONN-01: Firebase Listeners = 1
+**Input:** Minimal subscriptions
+**Expected:** Normal real-time updates
+**Component:** Web Portal
+
+---
+
+### BC-CONN-02: Firebase Listeners = 100
+**Input:** Many active subscriptions
+**Expected:** Memory monitoring, cleanup unused
+**Component:** Web Portal
+
+---
+
+### BC-CONN-03: Active Tracking Pages = 1
+**Input:** Single customer tracking
+**Expected:** Normal operation
+**Component:** Web Portal
+
+---
+
+### BC-CONN-04: Active Tracking Pages = 10,000
+**Input:** Stress test concurrent users
+**Expected:** Load balanced, acceptable latency
+**Component:** Backend
+
+---
+
+### BC-CONN-05: Admin Concurrent Sessions = 10
+**Input:** Maximum admin sessions
+**Expected:** All sessions functional
+**Component:** Admin Portal
+
+---
+
+## 🖼️ Image Dimension Boundaries (BC-IMG)
+
+### BC-IMG-01: Photo Resolution = 640x480 (Min)
+**Input:** Minimum acceptable resolution
+**Expected:** Accept, sufficient for proof
+**Component:** Box (ESP32)
+
+---
+
+### BC-IMG-02: Photo Resolution = 1920x1080 (Target)
+**Input:** Optimal resolution
+**Expected:** Good quality, reasonable file size
+**Component:** Box (ESP32)
+
+---
+
+### BC-IMG-03: Photo Resolution = 4K (3840x2160)
+**Input:** Maximum supported
+**Expected:** Auto-compress before upload
+**Component:** Box (ESP32)
+
+---
+
+### BC-IMG-04: Aspect Ratio = 1:1 (Square)
+**Input:** Square crop
+**Expected:** Display properly in UI
+**Component:** All Components
+
+---
+
+### BC-IMG-05: Aspect Ratio = 21:9 (Ultrawide)
+**Input:** Unusual aspect ratio
+**Expected:** Fit within display bounds
+**Component:** Web Portal
+
+---
+
+## 🌡️ Temperature Boundaries (BC-TEMP)
+
+### BC-TEMP-01: Operating Temp = -10°C
+**Input:** Minimum operating temperature
+**Expected:** Cold start may be slow, functional
+**Component:** Box (ESP32)
+
+---
+
+### BC-TEMP-02: Operating Temp = 0°C
+**Input:** Freezing point
+**Expected:** Normal operation
+**Component:** Box (ESP32)
+
+---
+
+### BC-TEMP-03: Operating Temp = 45°C
+**Input:** Warning threshold
+**Expected:** Temperature warning logged
+**Component:** Box (ESP32)
+
+---
+
+### BC-TEMP-04: Operating Temp = 60°C
+**Input:** Critical threshold
+**Expected:** Throttle operations, urgent alert
+**Component:** Box (ESP32)
+
+---
+
+### BC-TEMP-05: Operating Temp = 70°C
+**Input:** Shutdown threshold
+**Expected:** Safe shutdown, prevent damage
+**Component:** Box (ESP32)
+
+---
+
+## 📡 Signal Strength Boundaries (BC-SIG)
+
+### BC-SIG-01: WiFi RSSI = -30 dBm
+**Input:** Excellent signal strength
+**Expected:** Fast, reliable connection
+**Component:** Box (ESP32)
+
+---
+
+### BC-SIG-02: WiFi RSSI = -67 dBm
+**Input:** Good signal strength
+**Expected:** Normal operation
+**Component:** Box (ESP32)
+
+---
+
+### BC-SIG-03: WiFi RSSI = -70 dBm
+**Input:** Fair signal (minimum recommended)
+**Expected:** Functional but may have delays
+**Component:** Box (ESP32)
+
+---
+
+### BC-SIG-04: WiFi RSSI = -80 dBm
+**Input:** Poor signal
+**Expected:** Intermittent issues, offline mode ready
+**Component:** Box (ESP32)
+
+---
+
+### BC-SIG-05: WiFi RSSI = -90 dBm
+**Input:** Unusable signal
+**Expected:** Disconnected, offline mode active
+**Component:** Box (ESP32)
+
+---
+
+## 📏 Distance/Accuracy Boundaries (BC-DIST)
+
+### BC-DIST-01: GPS Accuracy = 1m
+**Input:** High precision GPS
+**Expected:** Exact positioning for arrival
+**Component:** Box (ESP32)
+
+---
+
+### BC-DIST-02: GPS Accuracy = 10m
+**Input:** Normal GPS accuracy
+**Expected:** Standard geofence calculations
+**Component:** Box (ESP32)
+
+---
+
+### BC-DIST-03: GPS Accuracy = 50m
+**Input:** Degraded accuracy (urban canyon)
+**Expected:** Larger geofence tolerance applied
+**Component:** Backend
+
+---
+
+### BC-DIST-04: GPS Accuracy = 100m
+**Input:** Cell tower fallback
+**Expected:** Accept with warning, manual verification
+**Component:** Backend
+
+---
+
+### BC-DIST-05: Haversine at Poles
+**Input:** Latitude = 89.9999°
+**Expected:** Correct distance calculation (no division issues)
+**Component:** Web/Mobile
+
+---
+
+### BC-DIST-06: Haversine at Date Line
+**Input:** Longitude crossing 180°/-180°
+**Expected:** Correct wrap-around calculation
+**Component:** Web/Mobile
+
+---
+
 ## Summary
 
 | Category | Count |
@@ -656,7 +885,13 @@ Comprehensive list of boundary condition test cases for the Parcel-Safe Smart To
 | 📝 String Length Boundaries | 15 |
 | 📊 Collection Size Boundaries | 15 |
 | 📏 File Size Boundaries | 15 |
-| **Total** | **90** |
+| 🚦 Rate Limiting Boundaries | 5 |
+| 🔗 Concurrent Connection Boundaries | 5 |
+| 🖼️ Image Dimension Boundaries | 5 |
+| 🌡️ Temperature Boundaries | 5 |
+| 📡 Signal Strength Boundaries | 5 |
+| 📏 Distance/Accuracy Boundaries | 6 |
+| **Total** | **116** |
 
 ---
 
@@ -669,6 +904,10 @@ Comprehensive list of boundary condition test cases for the Parcel-Safe Smart To
 | Battery % | 0 | 1 | 50 | 99 | 100 | N/A |
 | String Length | 0 | 1 | typical | max-1 | max | max+1 |
 | Queue Size | 0 | 1 | 5 | 9 | 10 | 11 |
+| API Rate | 0 | 1 | 50 | 99 | 100 | 101 |
+| WiFi RSSI (dBm) | -90 | -89 | -67 | -31 | -30 | N/A |
+| Temperature (°C) | -10 | -9 | 25 | 59 | 60 | 70 |
+| GPS Accuracy (m) | 1 | 2 | 10 | 49 | 50 | 100 |
 
 ---
 
@@ -678,3 +917,7 @@ Comprehensive list of boundary condition test cases for the Parcel-Safe Smart To
 2. **Database Constraints**: CHECK constraints enforce limits
 3. **UI Validation**: Client prevents out-of-range input
 4. **Firmware Bounds**: C++ templates for compile-time checks
+5. **Rate Limiting**: Middleware enforces API quotas
+6. **Signal Monitoring**: Real-time WiFi/GPS quality checks
+7. **Temperature Monitoring**: Hardware sensor thresholds
+8. **Load Testing**: Concurrent connection stress tests

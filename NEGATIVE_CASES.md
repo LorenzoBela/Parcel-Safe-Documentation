@@ -666,6 +666,212 @@ Comprehensive list of negative test cases for the Parcel-Safe Smart Top Box deli
 
 ---
 
+## ⚡ Concurrency Negatives (NC-CONC)
+
+### NC-CONC-01: Simultaneous OTP Validation
+**Input:** Two OTP validation requests at same millisecond
+**Expected:** One succeeds, other gets "already consumed" error
+**Component:** Box (ESP32)
+
+---
+
+### NC-CONC-02: Delivery Assignment During Logout
+**Input:** New delivery assigned while rider logging out
+**Expected:** Assignment fails gracefully, delivery returned to pool
+**Component:** Mobile App
+
+---
+
+### NC-CONC-03: Photo Upload During Power Cycle
+**Input:** Power cut during photo upload to Firebase
+**Expected:** Partial upload detected, full retry on reboot
+**Component:** Box (ESP32)
+
+---
+
+### NC-CONC-04: Status Update While Reconnecting
+**Input:** Status change triggered during Firebase reconnection
+**Expected:** Queued until connection stable, then sent
+**Component:** All Components
+
+---
+
+### NC-CONC-05: Rating After Delivery Deleted
+**Input:** Customer submits rating for deleted delivery
+**Expected:** 404 error, "Delivery no longer exists" message
+**Component:** Web Portal
+
+---
+
+## 💾 Resource Exhaustion Negatives (NC-RES)
+
+### NC-RES-01: ESP32 Heap Exhausted
+**Input:** Memory leak causes heap full
+**Expected:** Watchdog detects, triggers safe reboot
+**Component:** Box (ESP32)
+
+---
+
+### NC-RES-02: Firebase Connection Pool Full
+**Input:** Too many simultaneous connections
+**Expected:** Queue new connections, timeout gracefully
+**Component:** Backend
+
+---
+
+### NC-RES-03: Mobile App Bundle Too Large
+**Input:** App assets exceed OS bundle limit
+**Expected:** Build fails, developer notified
+**Component:** Mobile App (Build)
+
+---
+
+### NC-RES-04: Server Thread Pool Exhausted
+**Input:** More requests than available threads
+**Expected:** 503 Service Unavailable, requests queued
+**Component:** Backend
+
+---
+
+### NC-RES-05: Push Notification Quota Exceeded
+**Input:** Daily FCM limit reached
+**Expected:** Fallback to SMS, alert admin
+**Component:** Backend
+
+---
+
+## 🔌 API Contract Negatives (NC-API)
+
+### NC-API-01: Deprecated API Version
+**Input:** Request to /api/v1 when v1 is deprecated
+**Expected:** 410 Gone with migration guide link
+**Component:** Backend
+
+---
+
+### NC-API-02: Missing Content-Type Header
+**Input:** POST request without Content-Type
+**Expected:** 415 Unsupported Media Type
+**Component:** Backend
+
+---
+
+### NC-API-03: Request Body Too Large
+**Input:** JSON body >10MB
+**Expected:** 413 Payload Too Large
+**Component:** Backend
+
+---
+
+### NC-API-04: Circular Reference in JSON
+**Input:** JSON with circular object references
+**Expected:** Parse error, 400 Bad Request
+**Component:** Backend
+
+---
+
+### NC-API-05: Mixed Encoding Characters
+**Input:** UTF-8 mixed with Latin-1 encoding
+**Expected:** Encoding error detected, reject with clear message
+**Component:** Backend
+
+---
+
+### NC-API-06: HTTP/1.0 to HTTP/2 Server
+**Input:** Legacy HTTP/1.0 request
+**Expected:** Graceful downgrade, request processed
+**Component:** Backend
+
+---
+
+### NC-API-07: Clock Skew in Request
+**Input:** Request timestamp >5 minutes from server time
+**Expected:** 400 error with clock sync suggestion
+**Component:** Backend
+
+---
+
+### NC-API-08: Invalid Accept-Language Header
+**Input:** Accept-Language = "xx-XX" (invalid locale)
+**Expected:** Fall back to default language (en)
+**Component:** Backend
+
+---
+
+## 🔄 State Corruption Negatives (NC-STATE)
+
+### NC-STATE-01: SPIFFS Corruption Mid-Write
+**Input:** Power loss during SPIFFS write
+**Expected:** Detect corruption on boot, reinitialize
+**Component:** Box (ESP32)
+
+---
+
+### NC-STATE-02: Firebase Listener Orphaned
+**Input:** Listener not cleaned up on navigation
+**Expected:** Memory leak detected, auto-cleanup after timeout
+**Component:** Web Portal
+
+---
+
+### NC-STATE-03: AsyncStorage Corruption
+**Input:** App killed during AsyncStorage write
+**Expected:** Detect invalid data, clear and re-fetch
+**Component:** Mobile App
+
+---
+
+### NC-STATE-04: LocalStorage Quota During Save
+**Input:** Browser localStorage full when saving state
+**Expected:** Clear old data, show warning to user
+**Component:** Web Portal
+
+---
+
+### NC-STATE-05: RTC Memory Brownout Corruption
+**Input:** Voltage dip corrupts RTC memory
+**Expected:** Checksum fails, re-fetch state from Firebase
+**Component:** Box (ESP32)
+
+---
+
+## 💰 Payment Negatives (NC-PAY)
+
+### NC-PAY-01: Payment Gateway Timeout
+**Input:** GCash/PayMaya API doesn't respond in 30s
+**Expected:** Transaction pending, retry with idempotency key
+**Component:** Backend
+
+---
+
+### NC-PAY-02: Partial Refund Error
+**Input:** Refund amount > original payment
+**Expected:** Reject refund, alert admin
+**Component:** Backend
+
+---
+
+### NC-PAY-03: Currency Rate Unavailable
+**Input:** Exchange rate API down
+**Expected:** Use cached rate with warning, or block transaction
+**Component:** Backend
+
+---
+
+### NC-PAY-04: Double Payment Detected
+**Input:** Same payment submitted twice (network retry)
+**Expected:** Idempotency check, second payment rejected
+**Component:** Backend
+
+---
+
+### NC-PAY-05: Payment During Maintenance
+**Input:** Payment gateway in maintenance window
+**Expected:** User-friendly message, suggest retry later
+**Component:** Backend
+
+---
+
 ## Summary
 
 | Category | Count |
@@ -679,14 +885,22 @@ Comprehensive list of negative test cases for the Parcel-Safe Smart Top Box deli
 | 📱 Mobile App | 10 |
 | 🌐 Web Portal | 10 |
 | 📊 Data Integrity | 10 |
-| **Total** | **92** |
+| ⚡ Concurrency | 5 |
+| 💾 Resource Exhaustion | 5 |
+| 🔌 API Contract | 8 |
+| 🔄 State Corruption | 5 |
+| 💰 Payment | 5 |
+| **Total** | **120** |
 
 ---
 
 ## Testing Strategy
 
-1. **Unit Tests**: NC-OTP-*, NC-DATA-*, NC-GPS-* logic validation
-2. **Integration Tests**: NC-NET-*, NC-AUTH-* with mocked services
+1. **Unit Tests**: NC-OTP-*, NC-DATA-*, NC-GPS-*, NC-STATE-* logic validation
+2. **Integration Tests**: NC-NET-*, NC-AUTH-*, NC-API-* with mocked services
 3. **Hardware Tests**: NC-HW-*, NC-CAM-* with actual modules
 4. **E2E Tests**: NC-MOB-*, NC-WEB-* full flow testing
 5. **Security Tests**: NC-AUTH-08, NC-AUTH-09, NC-DATA-10 penetration testing
+6. **Concurrency Tests**: NC-CONC-* race condition validation
+7. **Load Tests**: NC-RES-* resource exhaustion scenarios
+8. **Payment Tests**: NC-PAY-* with sandbox payment gateways

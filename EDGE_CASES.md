@@ -236,6 +236,14 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 - [ ] Fill photo queue to limit (EC-10)
 - [ ] Simulate box power loss (EC-03)
 - [ ] Kill app during active tracking (EC-15)
+- [ ] Network switch during upload (EC-61)
+- [ ] Captive portal WiFi detection (EC-62)
+- [ ] Two riders at same location (EC-65)
+- [ ] Shift handover with active delivery (EC-67)
+- [ ] Admin override during OTP entry (EC-77)
+- [ ] Firmware update during delivery (EC-80)
+- [ ] Year-end transition test (EC-74)
+- [ ] Battery degradation simulation (EC-72)
 
 ---
 
@@ -845,14 +853,284 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 
 ---
 
+## 🌐 Network & Connectivity Edge Cases
+
+### EC-61: Network Switch Mid-Upload (WiFi → Cellular)
+**Scenario:** Photo upload starts on WiFi, phone switches to cellular mid-transfer.
+
+| Solution | Implementation |
+|----------|----------------|
+| Resumable uploads | Firebase Storage resumable sessions |
+| Connection monitoring | Detect network change, pause/resume |
+| Chunk validation | Verify each chunk before continuing |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-62: Captive Portal WiFi
+**Scenario:** Box connects to hotel/airport WiFi that requires browser login.
+
+| Solution | Implementation |
+|----------|----------------|
+| Detection | HTTP check to known endpoint |
+| Fallback | Mark WiFi as unusable, alert rider |
+| Alternative | Use phone hotspot instead |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-63: IPv6-Only Network
+**Scenario:** Network only supports IPv6, Firebase connectivity issues.
+
+| Solution | Implementation |
+|----------|----------------|
+| Dual stack | Ensure code works with IPv4 and IPv6 |
+| Firebase SDK | Use latest SDK with IPv6 support |
+| Testing | Test in IPv6-only environment |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-64: Slow DNS Resolution
+**Scenario:** DNS lookup takes >10 seconds, causing timeouts.
+
+| Solution | Implementation |
+|----------|----------------|
+| DNS caching | Cache resolved IPs locally |
+| Multiple DNS | Try Google DNS (8.8.8.8) as fallback |
+| Timeout handling | Longer timeout for initial connection |
+
+**Status:** ⬜ TODO
+
+---
+
+## 👥 Multi-Entity Edge Cases
+
+### EC-65: Two Riders Arrive Simultaneously
+**Scenario:** Two riders arrive at same location for different deliveries.
+
+| Solution | Implementation |
+|----------|----------------|
+| Distinct OTPs | Each delivery has unique OTP |
+| Customer clarity | Show which rider is for which package |
+| Queue display | Ordered list if same customer |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-66: Customer Orders from Two Riders
+**Scenario:** Same customer has two active deliveries from different riders.
+
+| Solution | Implementation |
+|----------|----------------|
+| Multi-delivery view | Tracking page shows both |
+| Separate OTPs | Each delivery independent |
+| Combined notifications | Group notifications logically |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-67: Box Shared Between Riders (Shift Handover)
+**Scenario:** Rider A ends shift, Rider B takes over same box with pending deliveries.
+
+| Solution | Implementation |
+|----------|----------------|
+| Box-centric OTP | OTP tied to box, not rider |
+| Handover protocol | Formal transfer in app |
+| Audit trail | Log shift changes |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-68: Residential vs Business Address
+**Scenario:** GPS matches both residential and business at same coordinates.
+
+| Solution | Implementation |
+|----------|----------------|
+| Address type field | Customer specifies type |
+| Instructions | Prompt for building name/unit |
+| Geofence size | Larger for business complexes |
+
+**Status:** ⬜ TODO
+
+---
+
+## 🔧 Hardware Lifecycle Edge Cases
+
+### EC-69: Hardware Calibration Drift
+**Scenario:** Sensors become less accurate over time.
+
+| Solution | Implementation |
+|----------|----------------|
+| Periodic calibration | Monthly self-test routine |
+| Drift detection | Compare against baseline |
+| Alert | Flag boxes needing recalibration |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-70: Flash Memory Wear Exhaustion
+**Scenario:** SPIFFS write cycles approaching limit.
+
+| Solution | Implementation |
+|----------|----------------|
+| Wear leveling | Built into ESP32 SPIFFS |
+| Write reduction | Batch writes, reduce frequency |
+| Monitoring | Track write counts, alert at 80% life |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-71: Keypad Key Wear
+**Scenario:** Frequently used keys (1, 2, 3) become unresponsive.
+
+| Solution | Implementation |
+|----------|----------------|
+| Key health check | Test all keys in diagnostics |
+| Redundant entry | Alternative input method |
+| Maintenance alert | Flag worn keys |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-72: Battery Degradation
+**Scenario:** Battery capacity reduced >30% from original.
+
+| Solution | Implementation |
+|----------|----------------|
+| Capacity tracking | Compare actual vs rated capacity |
+| Performance mode | Adjust power usage for degraded battery |
+| Replacement alert | Notify when replacement needed |
+
+**Status:** ⬜ TODO
+
+---
+
+## 📅 Time-Based Edge Cases
+
+### EC-73: Leap Year Date Calculations
+**Scenario:** Feb 29 causes date math errors.
+
+| Solution | Implementation |
+|----------|----------------|
+| Standard library | Use proven date libraries |
+| Testing | Test specifically for leap years |
+| Duration calc | Use day-agnostic duration math |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-74: Year-End Transition
+**Scenario:** Dec 31 23:59 → Jan 1 00:00 causes year rollover bugs.
+
+| Solution | Implementation |
+|----------|----------------|
+| UTC timestamps | Avoid local time manipulation |
+| Epoch time | Use Unix timestamps internally |
+| Year-agnostic | Don't hardcode year assumptions |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-75: Maintenance During Active Delivery
+**Scenario:** Scheduled maintenance starts while delivery in progress.
+
+| Solution | Implementation |
+|----------|----------------|
+| Grace period | Allow completion of active deliveries |
+| Block new assignments | Only prevent new deliveries |
+| Priority override | Critical deliveries can continue |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-76: Public Holiday Operations
+**Scenario:** Reduced staff/riders during holidays.
+
+| Solution | Implementation |
+|----------|----------------|
+| Holiday calendar | System-wide holiday awareness |
+| Capacity planning | Adjust max deliveries |
+| Customer notice | Show extended ETAs |
+
+**Status:** ⬜ TODO
+
+---
+
+## ⚡ Concurrency Edge Cases
+
+### EC-77: Admin Override During OTP Entry
+**Scenario:** Admin remotely unlocks box while customer is entering OTP.
+
+| Solution | Implementation |
+|----------|----------------|
+| Lock state sync | Real-time lock status |
+| Input cancellation | Clear keypad buffer on remote unlock |
+| Notification | Inform customer box was remotely opened |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-78: Delivery Reassignment During Navigation
+**Scenario:** Delivery reassigned while rider is en route.
+
+| Solution | Implementation |
+|----------|----------------|
+| Active notification | Alert rider immediately |
+| Route update | Navigation adjusts automatically |
+| Confirmation | Require rider acknowledgment |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-79: Photo Upload and OTP Revocation Race
+**Scenario:** Photo uploading when OTP is revoked (delivery cancelled).
+
+| Solution | Implementation |
+|----------|----------------|
+| Upload completion | Finish upload regardless |
+| Metadata flag | Mark photo as "cancelled delivery" |
+| No block | Don't fail upload due to status |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-80: Firmware Update During Active Delivery
+**Scenario:** OTA update triggered while delivery is active.
+
+| Solution | Implementation |
+|----------|----------------|
+| Defer update | Queue until delivery complete |
+| Critical only | Only security patches interrupt |
+| State preservation | Save state before reboot |
+
+**Status:** ⬜ TODO
+
+---
+
 ## Summary: Priority Matrix (Final)
 
 | Priority | Count | Edge Cases |
 |----------|-------|------------|
-| 🔴 P0 (Critical) | 4 | EC-01, EC-06, EC-18, EC-31 |
-| 🟡 P1 (High) | 12 | EC-02, EC-03, EC-04, EC-07, EC-19, EC-21, EC-22, EC-39, EC-41, EC-45, EC-48, EC-59 |
-| 🟢 P2 (Medium) | 15 | EC-08, EC-16, EC-23, EC-25, EC-29, EC-32, EC-35, EC-42, EC-46, EC-47, EC-49, EC-54, EC-55, EC-56, EC-57 |
-| 🔵 P3 (Low) | 29+ | All others |
+| 🔴 P0 (Critical) | 6 | EC-01, EC-06, EC-18, EC-31, EC-77, EC-80 |
+| 🟡 P1 (High) | 16 | EC-02, EC-03, EC-04, EC-07, EC-19, EC-21, EC-22, EC-39, EC-41, EC-45, EC-48, EC-59, EC-61, EC-67, EC-70, EC-78 |
+| 🟢 P2 (Medium) | 20 | EC-08, EC-16, EC-23, EC-25, EC-29, EC-32, EC-35, EC-42, EC-46, EC-47, EC-49, EC-54, EC-55, EC-56, EC-57, EC-62, EC-69, EC-72, EC-75, EC-79 |
+| 🔵 P3 (Low) | 38+ | All others |
 
 ---
 
@@ -870,4 +1148,4 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | EC-46 (Clock Skew) | Firebase server time |
 | EC-60 (DST) | UTC everywhere |
 
-**Total Edge Cases Documented: 60**
+**Total Edge Cases Documented: 80**

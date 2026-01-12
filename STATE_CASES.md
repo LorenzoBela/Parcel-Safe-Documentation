@@ -597,6 +597,414 @@ Comprehensive list of state transition test cases for the Parcel-Safe Smart Top 
 
 ---
 
+## 🔑 OTP State Machine (SC-OTP)
+
+### SC-OTP-01: PENDING → GENERATED
+**Trigger:** New delivery assigned to rider
+**Precondition:** Delivery created, no OTP exists
+**Action:** Server generates 6-digit OTP and hash
+**Postcondition:** OTP state = GENERATED
+**Validation:** OTP stored in database
+
+---
+
+### SC-OTP-02: GENERATED → SYNCED
+**Trigger:** Box acknowledges OTP receipt
+**Precondition:** State = GENERATED, box online
+**Action:** Box caches OTP hash locally
+**Postcondition:** OTP state = SYNCED
+**Validation:** Firebase confirms sync
+
+---
+
+### SC-OTP-03: SYNCED → ACTIVE
+**Trigger:** Rider enters delivery geofence
+**Precondition:** State = SYNCED, rider within 50m
+**Action:** OTP becomes visible to customer
+**Postcondition:** OTP state = ACTIVE
+**Validation:** Customer tracking shows OTP
+
+---
+
+### SC-OTP-04: ACTIVE → CONSUMED
+**Trigger:** Valid OTP successfully unlocks box
+**Precondition:** State = ACTIVE, correct OTP entered
+**Action:** OTP marked as used, cannot reuse
+**Postcondition:** OTP state = CONSUMED
+**Validation:** Unlock logged with timestamp
+
+---
+
+### SC-OTP-05: ACTIVE → EXPIRED
+**Trigger:** 4-hour validity period elapsed
+**Precondition:** State = ACTIVE, time > 4 hours since generation
+**Action:** OTP invalidated on box
+**Postcondition:** OTP state = EXPIRED
+**Validation:** Box rejects old OTP
+
+---
+
+### SC-OTP-06: ACTIVE → REGENERATED
+**Trigger:** Customer requests new OTP
+**Precondition:** State = ACTIVE, OTP compromised
+**Action:** Old OTP revoked, new OTP generated
+**Postcondition:** OTP state = REGENERATED
+**Validation:** Old OTP fails validation
+
+---
+
+### SC-OTP-07: REGENERATED → SYNCED
+**Trigger:** New OTP synced to box
+**Precondition:** State = REGENERATED
+**Action:** Box receives and caches new OTP
+**Postcondition:** OTP state = SYNCED
+**Validation:** Both web and box show new OTP
+
+---
+
+### SC-OTP-08: CONSUMED → ARCHIVED
+**Trigger:** Delivery completed
+**Precondition:** State = CONSUMED
+**Action:** OTP moved to audit archive
+**Postcondition:** OTP state = ARCHIVED
+**Validation:** Available in audit logs only
+
+---
+
+## 🔋 Battery State Machine (SC-BATT)
+
+### SC-BATT-01: FULL → NORMAL
+**Trigger:** Battery drops below 100%
+**Precondition:** Battery = 100%
+**Action:** Start normal discharge tracking
+**Postcondition:** Battery state = NORMAL (100-21%)
+**Validation:** No alerts triggered
+
+---
+
+### SC-BATT-02: NORMAL → LOW
+**Trigger:** Battery reaches 20%
+**Precondition:** Battery state = NORMAL
+**Action:** Low battery warning sent
+**Postcondition:** Battery state = LOW (20-11%)
+**Validation:** Push notification to rider
+
+---
+
+### SC-BATT-03: LOW → CRITICAL
+**Trigger:** Battery reaches 10%
+**Precondition:** Battery state = LOW
+**Action:** Critical alert, power-saving mode
+**Postcondition:** Battery state = CRITICAL (10-6%)
+**Validation:** Admin alerted, GPS frequency reduced
+
+---
+
+### SC-BATT-04: CRITICAL → SHUTDOWN
+**Trigger:** Battery reaches 5%
+**Precondition:** Battery state = CRITICAL
+**Action:** Safe shutdown sequence initiated
+**Postcondition:** Battery state = SHUTDOWN
+**Validation:** State saved before power off
+
+---
+
+### SC-BATT-05: SHUTDOWN → CHARGING
+**Trigger:** External power connected
+**Precondition:** Battery state = SHUTDOWN or any depleted state
+**Action:** Charging detected, boot sequence
+**Postcondition:** Battery state = CHARGING
+**Validation:** Charging indicator active
+
+---
+
+### SC-BATT-06: CHARGING → FULL
+**Trigger:** Battery reaches 100%
+**Precondition:** Battery state = CHARGING
+**Action:** Charging complete notification
+**Postcondition:** Battery state = FULL
+**Validation:** LED shows full charge
+
+---
+
+### SC-BATT-07: CRITICAL → POWER_SAVE
+**Trigger:** Auto-enable when critical
+**Precondition:** Battery state = CRITICAL
+**Action:** Reduce GPS updates, dim LED, disable preview
+**Postcondition:** Power-save mode active
+**Validation:** Core unlock still functional
+
+---
+
+## 📷 Photo Upload State Machine (SC-PHOTO)
+
+### SC-PHOTO-01: CAPTURED → QUEUED
+**Trigger:** Photo taken successfully
+**Precondition:** Camera capture complete
+**Action:** Photo saved to SPIFFS queue
+**Postcondition:** Photo state = QUEUED
+**Validation:** File exists on filesystem
+
+---
+
+### SC-PHOTO-02: QUEUED → UPLOADING
+**Trigger:** Network available, queue processor runs
+**Precondition:** Photo state = QUEUED, WiFi connected
+**Action:** Upload to Firebase Storage initiated
+**Postcondition:** Photo state = UPLOADING
+**Validation:** Upload progress tracked
+
+---
+
+### SC-PHOTO-03: UPLOADING → UPLOADED
+**Trigger:** Firebase confirms upload success
+**Precondition:** Photo state = UPLOADING
+**Action:** Photo URL saved, local file marked for cleanup
+**Postcondition:** Photo state = UPLOADED
+**Validation:** URL accessible
+
+---
+
+### SC-PHOTO-04: UPLOADING → RETRY
+**Trigger:** Upload fails (timeout, network error)
+**Precondition:** Photo state = UPLOADING, error occurred
+**Action:** Increment retry counter, schedule retry
+**Postcondition:** Photo state = RETRY
+**Validation:** Exponential backoff applied
+
+---
+
+### SC-PHOTO-05: RETRY → UPLOADING
+**Trigger:** Retry timer fires
+**Precondition:** Photo state = RETRY, retries < max
+**Action:** Upload attempt restarted
+**Postcondition:** Photo state = UPLOADING
+**Validation:** New attempt logged
+
+---
+
+### SC-PHOTO-06: RETRY → FAILED
+**Trigger:** Max retry attempts reached
+**Precondition:** Photo state = RETRY, retries = max
+**Action:** Mark as failed, alert admin
+**Postcondition:** Photo state = FAILED
+**Validation:** Photo logged for manual handling
+
+---
+
+### SC-PHOTO-07: FAILED → DELETED
+**Trigger:** Storage cleanup or manual intervention
+**Precondition:** Photo state = FAILED
+**Action:** Photo file removed from SPIFFS
+**Postcondition:** Photo state = DELETED
+**Validation:** Storage space freed
+
+---
+
+### SC-PHOTO-08: UPLOADED → PROCESSED
+**Trigger:** Server confirms receipt and processing
+**Precondition:** Photo state = UPLOADED
+**Action:** Link to delivery record
+**Postcondition:** Photo state = PROCESSED
+**Validation:** Visible in delivery details
+
+---
+
+## 🛵 Rider Availability State Machine (SC-RIDER)
+
+### SC-RIDER-01: OFFLINE → ONLINE
+**Trigger:** Rider toggles availability on
+**Precondition:** Rider logged in, not suspended
+**Action:** Status broadcast, eligible for assignments
+**Postcondition:** Rider state = ONLINE
+**Validation:** Appears in available riders list
+
+---
+
+### SC-RIDER-02: ONLINE → BUSY
+**Trigger:** Rider accepts delivery
+**Precondition:** Rider state = ONLINE
+**Action:** Assignment confirmed, no new offers
+**Postcondition:** Rider state = BUSY
+**Validation:** Cannot accept new deliveries
+
+---
+
+### SC-RIDER-03: BUSY → ONLINE
+**Trigger:** Delivery completed or cancelled
+**Precondition:** Rider state = BUSY
+**Action:** Ready for new assignments
+**Postcondition:** Rider state = ONLINE
+**Validation:** Back in available pool
+
+---
+
+### SC-RIDER-04: ONLINE → BREAK
+**Trigger:** Rider requests break
+**Precondition:** Rider state = ONLINE
+**Action:** Temporarily unavailable for assignments
+**Postcondition:** Rider state = BREAK
+**Validation:** Not offered new deliveries
+
+---
+
+### SC-RIDER-05: BREAK → ONLINE
+**Trigger:** Rider ends break
+**Precondition:** Rider state = BREAK
+**Action:** Resume availability
+**Postcondition:** Rider state = ONLINE
+**Validation:** Back in assignment pool
+
+---
+
+### SC-RIDER-06: ONLINE → OFFLINE
+**Trigger:** Rider toggles off or logs out
+**Precondition:** Rider state = ONLINE
+**Action:** Availability withdrawn
+**Postcondition:** Rider state = OFFLINE
+**Validation:** Removed from available riders
+
+---
+
+### SC-RIDER-07: BUSY → OFFLINE (Warning)
+**Trigger:** Rider attempts offline with active delivery
+**Precondition:** Rider state = BUSY
+**Action:** Warning shown, must complete/cancel first
+**Postcondition:** State unchanged until delivery resolved
+**Validation:** Cannot force offline with package
+
+---
+
+### SC-RIDER-08: Any → SUSPENDED
+**Trigger:** Admin suspends rider account
+**Precondition:** Any rider state
+**Action:** Immediate lockout, deliveries reassigned
+**Postcondition:** Rider state = SUSPENDED
+**Validation:** Cannot login until reinstated
+
+---
+
+## 📍 Geofence State Machine (SC-GEO)
+
+### SC-GEO-01: OUTSIDE → APPROACHING
+**Trigger:** Rider enters 1km radius
+**Precondition:** Distance > 1km, now < 1km
+**Action:** Customer notified "Rider is nearby"
+**Postcondition:** Geofence state = APPROACHING
+**Validation:** ETA countdown shown
+
+---
+
+### SC-GEO-02: APPROACHING → NEARBY
+**Trigger:** Rider enters 500m radius
+**Precondition:** Distance > 500m, now < 500m
+**Action:** "Almost there" notification
+**Postcondition:** Geofence state = NEARBY
+**Validation:** Map zooms to delivery area
+
+---
+
+### SC-GEO-03: NEARBY → ARRIVED
+**Trigger:** Rider enters 50m radius
+**Precondition:** Distance > 50m, now < 50m
+**Action:** OTP revealed, arrival notification
+**Postcondition:** Geofence state = ARRIVED
+**Validation:** Customer sees OTP code
+
+---
+
+### SC-GEO-04: ARRIVED → INSIDE
+**Trigger:** Rider within 10m of exact location
+**Precondition:** Distance > 10m, now < 10m
+**Action:** Precise arrival confirmed
+**Postcondition:** Geofence state = INSIDE
+**Validation:** "Rider is here" message
+
+---
+
+### SC-GEO-05: INSIDE → LEAVING
+**Trigger:** Rider moves away from location
+**Precondition:** Distance < 10m, now increasing
+**Action:** Movement detected
+**Postcondition:** Geofence state = LEAVING
+**Validation:** Track if delivery completed
+
+---
+
+### SC-GEO-06: LEAVING → OUTSIDE
+**Trigger:** Rider exits 50m radius
+**Precondition:** Geofence state = LEAVING
+**Action:** Check delivery status
+**Postcondition:** Geofence state = OUTSIDE
+**Validation:** Alert if not completed
+
+---
+
+### SC-GEO-07: OUTSIDE → RETURNING
+**Trigger:** Rider moves back toward location
+**Precondition:** State = OUTSIDE, distance decreasing
+**Action:** Update customer "Rider returning"
+**Postcondition:** Geofence state = RETURNING
+**Validation:** Track inbound movement
+
+---
+
+## 🔧 Admin Action State Machine (SC-ADMIN)
+
+### SC-ADMIN-01: NORMAL → REVIEWING
+**Trigger:** Customer files dispute
+**Precondition:** Delivery in NORMAL state
+**Action:** Ticket created, admin notified
+**Postcondition:** Admin state = REVIEWING
+**Validation:** Dispute visible in admin panel
+
+---
+
+### SC-ADMIN-02: REVIEWING → RESOLVED
+**Trigger:** Admin makes decision
+**Precondition:** Admin state = REVIEWING
+**Action:** Resolution recorded
+**Postcondition:** Admin state = RESOLVED
+**Validation:** Customer notified of outcome
+
+---
+
+### SC-ADMIN-03: REVIEWING → ESCALATED
+**Trigger:** Complex case needs senior review
+**Precondition:** Admin state = REVIEWING
+**Action:** Transferred to senior admin
+**Postcondition:** Admin state = ESCALATED
+**Validation:** Senior admin queue updated
+
+---
+
+### SC-ADMIN-04: ESCALATED → RESOLVED
+**Trigger:** Senior admin makes final decision
+**Precondition:** Admin state = ESCALATED
+**Action:** Final resolution recorded
+**Postcondition:** Admin state = RESOLVED
+**Validation:** Case closed, metrics updated
+
+---
+
+### SC-ADMIN-05: RESOLVED → REFUNDED
+**Trigger:** Resolution includes refund
+**Precondition:** Admin state = RESOLVED
+**Action:** Payment reversal initiated
+**Postcondition:** Admin state = REFUNDED
+**Validation:** Customer receives refund
+
+---
+
+### SC-ADMIN-06: RESOLVED → CLOSED
+**Trigger:** No further action required
+**Precondition:** Admin state = RESOLVED
+**Action:** Archive case
+**Postcondition:** Admin state = CLOSED
+**Validation:** Case moved to history
+
+---
+
 ## Summary
 
 | Category | Count |
@@ -607,7 +1015,13 @@ Comprehensive list of state transition test cases for the Parcel-Safe Smart Top 
 | 🌐 Web Tracking State Machine | 10 |
 | 🔧 Hardware Boot State Machine | 12 |
 | 🔔 Notification State Machine | 8 |
-| **Total** | **65** |
+| 🔑 OTP State Machine | 8 |
+| 🔋 Battery State Machine | 7 |
+| 📷 Photo Upload State Machine | 8 |
+| 🛵 Rider Availability State Machine | 8 |
+| 📍 Geofence State Machine | 7 |
+| 🔧 Admin Action State Machine | 6 |
+| **Total** | **109** |
 
 ---
 
@@ -666,6 +1080,83 @@ stateDiagram-v2
     UNLOCKING --> READY: Door closed
 ```
 
+### OTP State Flow
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING
+    PENDING --> GENERATED: Delivery assigned
+    GENERATED --> SYNCED: Box confirms
+    SYNCED --> ACTIVE: In geofence
+    ACTIVE --> CONSUMED: Valid unlock
+    ACTIVE --> EXPIRED: 4h timeout
+    ACTIVE --> REGENERATED: Customer request
+    REGENERATED --> SYNCED: New OTP synced
+    CONSUMED --> ARCHIVED: Delivery complete
+    ARCHIVED --> [*]
+    EXPIRED --> [*]
+```
+
+### Battery State Flow
+```mermaid
+stateDiagram-v2
+    [*] --> FULL
+    FULL --> NORMAL: Discharge starts
+    NORMAL --> LOW: 20% threshold
+    LOW --> CRITICAL: 10% threshold
+    CRITICAL --> SHUTDOWN: 5% threshold
+    CRITICAL --> POWER_SAVE: Auto-enable
+    SHUTDOWN --> CHARGING: Power connected
+    LOW --> CHARGING: Power connected
+    NORMAL --> CHARGING: Power connected
+    CHARGING --> FULL: 100% reached
+```
+
+### Rider Availability State Flow
+```mermaid
+stateDiagram-v2
+    [*] --> OFFLINE
+    OFFLINE --> ONLINE: Toggle on
+    ONLINE --> BUSY: Accept delivery
+    BUSY --> ONLINE: Delivery done
+    ONLINE --> BREAK: Take break
+    BREAK --> ONLINE: End break
+    ONLINE --> OFFLINE: Toggle off
+    BUSY --> OFFLINE: Warning (blocked)
+    ONLINE --> SUSPENDED: Admin action
+    BUSY --> SUSPENDED: Admin action
+    OFFLINE --> SUSPENDED: Admin action
+```
+
+### Geofence State Flow
+```mermaid
+stateDiagram-v2
+    [*] --> OUTSIDE
+    OUTSIDE --> APPROACHING: <1km
+    APPROACHING --> NEARBY: <500m
+    NEARBY --> ARRIVED: <50m
+    ARRIVED --> INSIDE: <10m
+    INSIDE --> LEAVING: Moving away
+    LEAVING --> OUTSIDE: >50m
+    OUTSIDE --> RETURNING: Heading back
+    RETURNING --> ARRIVED: <50m again
+```
+
+### Photo Upload State Flow
+```mermaid
+stateDiagram-v2
+    [*] --> CAPTURED
+    CAPTURED --> QUEUED: Saved to SPIFFS
+    QUEUED --> UPLOADING: Network available
+    UPLOADING --> UPLOADED: Success
+    UPLOADING --> RETRY: Error
+    RETRY --> UPLOADING: Backoff done
+    RETRY --> FAILED: Max retries
+    FAILED --> DELETED: Cleanup
+    UPLOADED --> PROCESSED: Server confirms
+    PROCESSED --> [*]
+    DELETED --> [*]
+```
+
 ---
 
 ## Testing Strategy
@@ -675,3 +1166,8 @@ stateDiagram-v2
 3. **Invalid Transitions**: Verify rejection of impossible state changes
 4. **Concurrency Tests**: Multiple simultaneous state change attempts
 5. **Recovery Tests**: State restoration after reboot/crash
+6. **OTP Lifecycle Tests**: Full OTP flow from generation to archive
+7. **Battery Simulation**: Discharge/charge cycles with threshold triggers
+8. **Photo Queue Tests**: Upload failures, retries, and cleanup
+9. **Rider State Tests**: Availability toggles and assignment impacts
+10. **Geofence Tests**: GPS-triggered state transitions with accuracy variations

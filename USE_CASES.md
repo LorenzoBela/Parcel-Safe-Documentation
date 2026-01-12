@@ -176,6 +176,78 @@ Comprehensive list of use cases for the Parcel-Safe Smart Top Box delivery syste
 
 ---
 
+### UC-C16: Schedule Future Delivery
+**Actor:** Customer
+**Precondition:** Active delivery service in area
+**Flow:**
+1. Customer selects "Schedule Delivery" option
+2. System displays available time slots
+3. Customer selects preferred date and time window
+4. System confirms scheduling
+5. Delivery queued for selected time
+**Postcondition:** Delivery scheduled for future execution
+
+---
+
+### UC-C17: Add Delivery Instructions
+**Actor:** Customer
+**Precondition:** Delivery booked or in progress
+**Flow:**
+1. Customer opens delivery details
+2. Clicks "Add Instructions" button
+3. Enters special instructions (gate code, landmarks, etc.)
+4. Instructions saved and visible to rider
+**Postcondition:** Rider has additional delivery guidance
+
+---
+
+### UC-C18: Enable Contactless Delivery Preference
+**Actor:** Customer
+**Precondition:** Account settings accessible
+**Flow:**
+1. Customer navigates to preferences
+2. Toggles "Contactless Delivery" option
+3. System saves preference
+4. Future deliveries default to contactless
+**Postcondition:** Contactless delivery is default for customer
+
+---
+
+### UC-C19: Share Tracking Link with Third Party
+**Actor:** Customer
+**Precondition:** Active delivery with tracking link
+**Flow:**
+1. Customer clicks "Share Tracking" button
+2. System generates shareable link with limited permissions
+3. Customer shares via SMS/email/messaging app
+4. Third party can view basic tracking info
+**Postcondition:** Third party has read-only tracking access
+
+---
+
+### UC-C20: View Delivery Statistics
+**Actor:** Customer
+**Precondition:** Completed deliveries exist
+**Flow:**
+1. Customer opens "My Statistics" section
+2. System displays total deliveries, on-time rate, etc.
+3. Customer can view monthly/yearly breakdown
+**Postcondition:** Customer sees delivery history analytics
+
+---
+
+### UC-C21: Create Recurring Delivery
+**Actor:** Customer
+**Precondition:** Subscription feature enabled
+**Flow:**
+1. Customer selects "Set Up Recurring" on delivery
+2. Chooses frequency (daily/weekly/monthly)
+3. Sets start date and end date (optional)
+4. System creates recurring schedule
+**Postcondition:** Automatic deliveries scheduled
+
+---
+
 ## 🛵 Rider Use Cases (UC-R)
 
 ### UC-R01: Login with Google Account
@@ -410,6 +482,91 @@ Comprehensive list of use cases for the Parcel-Safe Smart Top Box delivery syste
 
 ---
 
+### UC-R21: Start/End Shift Clock-in
+**Actor:** Rider
+**Precondition:** Logged in, verified account
+**Flow:**
+1. Rider taps "Start Shift" button
+2. System records shift start time and location
+3. Rider is marked available for deliveries
+4. At end, rider taps "End Shift"
+5. System calculates shift hours and earnings
+**Postcondition:** Shift hours tracked for payroll
+
+---
+
+### UC-R22: View Route Optimization
+**Actor:** Rider
+**Precondition:** Multiple deliveries assigned
+**Flow:**
+1. Rider opens "My Route" screen
+2. System calculates optimal delivery order
+3. Map displays optimized route with waypoints
+4. Rider can manually reorder if needed
+**Postcondition:** Efficient multi-stop route displayed
+
+---
+
+### UC-R23: Request Emergency Assistance
+**Actor:** Rider
+**Precondition:** Active delivery or shift
+**Flow:**
+1. Rider presses SOS/Emergency button
+2. System captures GPS location
+3. Alert sent to support team
+4. Optional: Auto-call to emergency contacts
+**Postcondition:** Support team alerted with rider location
+
+---
+
+### UC-R24: Handle Priority/Express Delivery
+**Actor:** Rider
+**Precondition:** Express delivery assigned
+**Flow:**
+1. System assigns express delivery with priority flag
+2. Rider receives urgent notification
+3. Express indicator shown throughout delivery
+4. Bonus payment applied upon completion
+**Postcondition:** Express delivery completed with bonus
+
+---
+
+### UC-R25: Swap Delivery with Another Rider
+**Actor:** Rider
+**Precondition:** Delivery assigned, another rider available
+**Flow:**
+1. Rider selects "Request Swap" on delivery
+2. System notifies nearby available riders
+3. Another rider accepts swap request
+4. Delivery transferred with OTP re-sync
+**Postcondition:** Delivery reassigned, both riders notified
+
+---
+
+### UC-R26: Report Weather/Traffic Delay
+**Actor:** Rider
+**Precondition:** Active delivery in progress
+**Flow:**
+1. Rider taps "Report Delay" button
+2. Selects reason (traffic, weather, accident, etc.)
+3. System updates ETA and notifies customer
+4. Delay logged for analytics
+**Postcondition:** Customer informed of delay reason
+
+---
+
+### UC-R27: View Daily Leaderboard
+**Actor:** Rider
+**Precondition:** Logged in
+**Flow:**
+1. Rider navigates to "Leaderboard" screen
+2. System displays top riders by deliveries/rating
+3. Rider sees their current rank
+4. Achievement badges displayed
+**Postcondition:** Rider motivated by gamification
+
+---
+
 ## 🔧 Admin Use Cases (UC-A)
 
 ### UC-A01: Login to Admin Portal
@@ -586,6 +743,91 @@ Comprehensive list of use cases for the Parcel-Safe Smart Top Box delivery syste
 3. Clicks "Export"
 4. CSV downloaded
 **Postcondition:** Audit trail available for review
+
+---
+
+### UC-A16: Manage Delivery Zones
+**Actor:** Admin
+**Precondition:** Logged into admin portal
+**Flow:**
+1. Admin navigates to "Zone Management"
+2. Views map with current service boundaries
+3. Creates/edits polygon zones
+4. Assigns pricing and availability per zone
+**Postcondition:** Service areas configured
+
+---
+
+### UC-A17: Configure Peak Hour Pricing
+**Actor:** Admin
+**Precondition:** Pricing module enabled
+**Flow:**
+1. Admin navigates to "Surge Pricing"
+2. Defines time-based pricing rules
+3. Sets multipliers for peak hours
+4. Rules activate automatically
+**Postcondition:** Dynamic pricing active during peak times
+
+---
+
+### UC-A18: Schedule Box Maintenance
+**Actor:** Admin
+**Precondition:** Box fleet registered
+**Flow:**
+1. Admin selects box(es) for maintenance
+2. Sets maintenance date and type
+3. Box marked unavailable during window
+4. Technician notified
+**Postcondition:** Maintenance scheduled, box offline
+
+---
+
+### UC-A19: Create Promotional Campaign
+**Actor:** Admin
+**Precondition:** Marketing module enabled
+**Flow:**
+1. Admin navigates to "Promotions"
+2. Creates new campaign with discount rules
+3. Sets validity period and target audience
+4. Campaign goes live
+**Postcondition:** Promo codes/discounts active
+
+---
+
+### UC-A20: View Real-Time Fleet Analytics
+**Actor:** Admin
+**Precondition:** Active fleet operations
+**Flow:**
+1. Admin opens "Fleet Dashboard"
+2. Views live map with all active riders/boxes
+3. Sees utilization, delivery counts, delays
+4. Drill-down into individual metrics
+**Postcondition:** Operational insight obtained
+
+---
+
+### UC-A21: Manage API Keys
+**Actor:** Admin
+**Precondition:** Integration module enabled
+**Flow:**
+1. Admin navigates to "API Management"
+2. Creates/revokes API keys for partners
+3. Sets rate limits and permissions
+4. Monitors API usage
+**Postcondition:** Third-party integrations controlled
+
+---
+
+### UC-A22: Bulk Import Deliveries
+**Actor:** Admin
+**Precondition:** CSV template available
+**Flow:**
+1. Admin navigates to "Import Deliveries"
+2. Uploads CSV file with delivery data
+3. System validates and previews entries
+4. Admin confirms import
+5. Deliveries created in batch
+**Postcondition:** Multiple deliveries created at once
 
 ---
 
@@ -770,6 +1012,67 @@ Comprehensive list of use cases for the Parcel-Safe Smart Top Box delivery syste
 4. Flashes new firmware
 5. Reboots
 **Postcondition:** Running updated firmware
+
+---
+
+### UC-B16: Handle Multiple OTPs (Batch Mode)
+**Actor:** Box
+**Precondition:** Multiple deliveries assigned to same box
+**Flow:**
+1. Firebase syncs multiple OTP hashes
+2. Box caches all OTPs with delivery IDs
+3. Any valid OTP triggers unlock
+4. Consumed OTP removed from cache
+**Postcondition:** Box can serve multiple deliveries
+
+---
+
+### UC-B17: Run Self-Diagnostics
+**Actor:** Box
+**Precondition:** Scheduled or triggered by admin
+**Flow:**
+1. Box initiates health check sequence
+2. Tests camera, GPS, solenoid, sensors
+3. Checks storage, memory, battery
+4. Reports results to Firebase
+**Postcondition:** Health status updated in dashboard
+
+---
+
+### UC-B18: Adaptive GPS Reporting
+**Actor:** Box
+**Precondition:** GPS module active
+**Flow:**
+1. Box detects movement speed
+2. If stationary: report every 60s
+3. If moving slowly: report every 10s
+4. If moving fast: report every 3s
+**Postcondition:** Optimized GPS update frequency
+
+---
+
+### UC-B19: Enter Power Saving Mode
+**Actor:** Box
+**Precondition:** Battery < 15% or idle > 30 minutes
+**Flow:**
+1. Box detects low battery or extended idle
+2. Reduces GPS frequency to every 5 minutes
+3. Disables camera preview
+4. LED dimmed
+5. Core unlock function remains active
+**Postcondition:** Extended battery life in degraded mode
+
+---
+
+### UC-B20: Handle Emergency SOS
+**Actor:** Box
+**Precondition:** SOS button installed (optional hardware)
+**Flow:**
+1. Rider presses physical SOS button on box
+2. Box captures photo and GPS
+3. Emergency alert sent to Firebase
+4. Admin and emergency contacts notified
+**Postcondition:** Emergency response triggered
 
 ---
 
@@ -1010,17 +1313,68 @@ Comprehensive list of use cases for the Parcel-Safe Smart Top Box delivery syste
 
 ---
 
+## 🔌 Integration Use Cases (UC-I)
+
+### UC-I01: Sync with E-commerce Platform
+**Actor:** System
+**Precondition:** E-commerce integration configured
+**Flow:**
+1. E-commerce platform sends order webhook
+2. System validates and parses order data
+3. Delivery created automatically
+4. Status updates sent back to platform
+**Postcondition:** Seamless order-to-delivery flow
+
+---
+
+### UC-I02: Export to Insurance System
+**Actor:** System
+**Precondition:** Insurance integration enabled
+**Flow:**
+1. Delivery completed with incidents
+2. System compiles delivery audit trail
+3. Data exported to insurance partner API
+4. Claim reference returned
+**Postcondition:** Insurance records synchronized
+
+---
+
+### UC-I03: Connect Fleet Management System
+**Actor:** System
+**Precondition:** Fleet management integration active
+**Flow:**
+1. Box location updates streamed
+2. Fleet system receives real-time telemetry
+3. Maintenance alerts forwarded
+4. Utilization reports generated
+**Postcondition:** Centralized fleet visibility
+
+---
+
+### UC-I04: Webhook Delivery Notifications
+**Actor:** System
+**Precondition:** Webhook endpoint configured by partner
+**Flow:**
+1. Delivery status changes
+2. System constructs webhook payload
+3. HTTP POST sent to partner endpoint
+4. Retry on failure (3 attempts)
+**Postcondition:** Partner systems notified in real-time
+
+---
+
 ## Summary
 
 | Category | Count |
 |----------|-------|
-| 👤 Customer Use Cases | 15 |
-| 🛵 Rider Use Cases | 20 |
-| 🔧 Admin Use Cases | 15 |
-| 📦 Box Use Cases | 15 |
+| 👤 Customer Use Cases | 21 |
+| 🛵 Rider Use Cases | 27 |
+| 🔧 Admin Use Cases | 22 |
+| 📦 Box Use Cases | 20 |
 | 🌐 Web Portal Use Cases | 10 |
 | 📱 Mobile-Specific Use Cases | 10 |
-| **Total** | **85** |
+| 🔌 Integration Use Cases | 4 |
+| **Total** | **114** |
 
 ---
 
@@ -1028,7 +1382,7 @@ Comprehensive list of use cases for the Parcel-Safe Smart Top Box delivery syste
 
 | Priority | Use Cases | Rationale |
 |----------|-----------|-----------|
-| P0 (Critical) | UC-C07, UC-B03, UC-B04, UC-B05 | Core unlock flow |
-| P1 (High) | UC-R03, UC-R09, UC-B07, UC-B08 | Delivery lifecycle |
-| P2 (Medium) | UC-A05, UC-A06, UC-B11 | Security features |
-| P3 (Low) | UC-C13, UC-R11, UC-M01 | Nice-to-have features |
+| P0 (Critical) | UC-C07, UC-B03, UC-B04, UC-B05, UC-B16 | Core unlock flow |
+| P1 (High) | UC-R03, UC-R09, UC-B07, UC-B08, UC-R23, UC-B20 | Delivery lifecycle & safety |
+| P2 (Medium) | UC-A05, UC-A06, UC-B11, UC-B17, UC-I01, UC-I04 | Security & integration |
+| P3 (Low) | UC-C13, UC-R11, UC-M01, UC-C20, UC-R27, UC-A19 | Nice-to-have features |
