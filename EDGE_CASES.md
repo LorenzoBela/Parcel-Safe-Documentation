@@ -290,7 +290,7 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 - [ ] Captive portal WiFi detection (EC-62)
 - [ ] Two riders at same location (EC-65)
 - [ ] Shift handover with active delivery (EC-67)
-- [ ] Admin override during OTP entry (EC-77)
+- [x] Admin override during OTP entry (EC-77) ✅ Unit tests pass
 - [ ] Firmware update during delivery (EC-80)
 - [ ] Year-end transition test (EC-74)
 - [ ] Battery degradation simulation (EC-72)
@@ -1260,11 +1260,17 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 
 | Solution | Implementation |
 |----------|----------------|
-| Lock state sync | Real-time lock status |
-| Input cancellation | Clear keypad buffer on remote unlock |
-| Notification | Inform customer box was remotely opened |
+| Lock state sync | Real-time lock status via Firebase `/admin_override` node |
+| Input cancellation | Clear keypad buffer on remote unlock (immediate, no confirmation) |
+| Notification | Inform customer box was remotely opened via tracking page banner |
 
-**Status:** ⬜ TODO
+**Implementation:**
+- Hardware: `AdminOverride.h` library with state management and keypad clearing
+- Mobile: `adminOverrideService.ts` with Firebase subscription
+- Web: `subscribeToAdminOverride()` in firebaseClient.ts
+- Tests: 13 hardware + 11 mobile + 5 web unit tests
+
+**Status:** ✅ Done
 
 ---
 
@@ -1273,11 +1279,17 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 
 | Solution | Implementation |
 |----------|----------------|
-| Active notification | Alert rider immediately |
+| Active notification | Alert rider immediately via push notification |
 | Route update | Navigation adjusts automatically |
-| Confirmation | Require rider acknowledgment |
+| Auto-acknowledgment | Auto-acknowledge after 30-second timeout (per user decision) |
 
-**Status:** ⬜ TODO
+**Implementation:**
+- Hardware: `DeliveryReassignment.h` library with auto-ack timer and OTP cache clearing
+- Mobile: `deliveryReassignmentService.ts` with countdown and acknowledgment
+- Web: `subscribeToReassignment()` with countdown display
+- Tests: 5 hardware + 12 mobile + 6 web unit tests
+
+**Status:** ✅ Done
 
 ---
 
@@ -1286,11 +1298,17 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 
 | Solution | Implementation |
 |----------|----------------|
-| Upload completion | Finish upload regardless |
-| Metadata flag | Mark photo as "cancelled delivery" |
-| No block | Don't fail upload due to status |
+| Upload completion | Finish upload regardless of cancellation |
+| Metadata flag | Mark photo with `cancelledDuringUpload` and `flaggedForReview` flags |
+| Photo retention | Keep photos indefinitely for audit (per user decision) |
 
-**Status:** ⬜ TODO
+**Implementation:**
+- Hardware: `PhotoQueue.h/cpp` with `markDeliveryCancelled()` and review flagging
+- Mobile: `PhotoUploadRace.test.ts` with upload state tracking
+- Web: `subscribeToPhotoUploadRace()` with cancelled photo display
+- Tests: 3 hardware + 9 mobile + 7 web unit tests
+
+**Status:** ✅ Done
 
 ---
 

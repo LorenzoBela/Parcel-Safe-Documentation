@@ -48,7 +48,7 @@
 | 🌐 Web Portal Use Cases | 10 | 9 | 8 | 90% |
 | 📱 Mobile Use Cases | 10 | 9 | 8 | 90% |
 | 🔌 Integration Use Cases | 4 | 1 | 0 | 25% |
-| ⚡ Edge Cases | 80 | 27 | 23 | 34% |
+| ⚡ Edge Cases | 80 | 30 | 26 | 38% |
 | 📏 Boundary Cases | 116 | 95 | 85 | 82% |
 | ❌ Negative Cases | 120 | 90 | 80 | 75% |
 | 🔄 State Transitions | 109 | 70 | 65 | 64% |
@@ -202,6 +202,9 @@ OVERALL:        ████████████████░░░░░�
 | EC-12 | Wrong Address Correction | Mobile, Web | ✅ Done |
 | EC-15 | Background Location | Mobile | ✅ Done |
 | EC-32 | Rider Cancels After Pickup | Mobile, Web, Hardware | ✅ Done |
+| EC-77 | Admin Override During OTP Entry | Hardware, Mobile, Web | ✅ Done |
+| EC-78 | Delivery Reassignment During Navigation | Hardware, Mobile, Web | ✅ Done |
+| EC-79 | Photo Upload and OTP Revocation Race | Hardware, Mobile, Web | ✅ Done |
 
 ### Priority Matrix
 
@@ -418,8 +421,8 @@ OVERALL:        ████████████████░░░░░�
 | 👥 Multi-Entity | EC-65 to EC-68 | 4 | 1 (25%) |
 | 🔧 Hardware Lifecycle | EC-69 to EC-72 | 4 | 0 (0%) |
 | 📅 Time-Based | EC-73 to EC-76 | 4 | 0 (0%) |
-| ⚡ Concurrency | EC-77 to EC-80 | 4 | 0 (0%) |
-| **Total** | | **80** | **29 (36%)** |
+| ⚡ Concurrency | EC-77 to EC-80 | 4 | 3 (75%) |
+| **Total** | | **80** | **32 (40%)** |
 
 ---
 
@@ -519,7 +522,7 @@ OVERALL:        ████████████████░░░░░�
 | EC-65 to EC-68 | 👥 Multi-Entity (Two riders, handover) | 4 | 🔶 Partial (EC-68 ✅) |
 | EC-69 to EC-72 | 🔧 Hardware Lifecycle (Calibration, wear) | 4 | ⬜ TODO |
 | EC-73 to EC-76 | 📅 Time-Based (Leap year, holidays) | 4 | ⬜ TODO |
-| EC-77 to EC-80 | ⚡ Concurrency (Override, reassignment) | 4 | ⬜ TODO |
+| EC-77 to EC-80 | ⚡ Concurrency (Override, reassignment) | 4 | 🟡 Partial (EC-77, EC-78, EC-79 ✅) |
 
 ---
 
