@@ -201,6 +201,7 @@ OVERALL:        ████████████████░░░░░�
 | EC-11 | Customer Not Home | Mobile, Web | ✅ Done |
 | EC-12 | Wrong Address Correction | Mobile, Web | ✅ Done |
 | EC-15 | Background Location | Mobile | ✅ Done |
+| EC-32 | Rider Cancels After Pickup | Mobile, Web, Hardware | ✅ Done |
 
 ### Priority Matrix
 
@@ -208,8 +209,8 @@ OVERALL:        ████████████████░░░░░�
 |----------|-------------|-------|------|-----------|
 | 🔴 P0 | Critical - System Unusable | 25 | 22 | 3 |
 | 🟡 P1 | High - Major Impact | 45 | 35 | 10 |
-| 🟢 P2 | Medium - Minor Impact | 80 | 50 | 30 |
-| 🔵 P3 | Low - Nice to Have | 389 | 266 | 123 |
+| 🟢 P2 | Medium - Minor Impact | 80 | 51 | 29 |
+| 🔵 P3 | Low - Nice to Have | 389 | 267 | 122 |
 
 ---
 
@@ -404,7 +405,7 @@ OVERALL:        ████████████████░░░░░�
 | 🔵 Security | EC-16 to EC-20 | 5 | 2 (40%) |
 | 🟤 Hardware | EC-21 to EC-25 | 5 | 5 (100%) |
 | 🌡️ Environmental | EC-26 to EC-28 | 3 | 0 (0%) |
-| 👥 Multi-Party | EC-29 to EC-32 | 4 | 1 (25%) |
+| 👥 Multi-Party | EC-29 to EC-32 | 4 | 2 (50%) |
 | ⚡ Race Conditions | EC-33 to EC-35 | 3 | 0 (0%) |
 | 📱 Mobile Specific | EC-36 to EC-38 | 3 | 0 (0%) |
 | 💰 Financial | EC-39 to EC-41 | 3 | 0 (0%) |

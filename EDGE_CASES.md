@@ -574,7 +574,18 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Alert | Notify sender of cancellation |
 | Return flow | Generate "return OTP" for sender |
 
-**Status:** ⬜ TODO - Cancellation flow
+**Status:** ✅ Done - Full implementation
+- Mobile: `cancellationService.ts` - Cancellation request, return OTP generation, Firebase integration
+- Web: `firebaseClient.ts` - `CancellationState` interface, `subscribeToCancellation()`, severity helpers
+- Hardware: `DeliveryState.h` - `setCancelled()`, `validateOtpWithCancellation()`, return OTP storage
+- Firebase: `/cancellations/{delivery_id}` with return OTP and sender notification
+- Tests: `ec32RiderCancellation.test.ts` (web), `RiderCancellation.test.ts` (mobile), `test_edge_cases.h` (hardware)
+- Features:
+  - 24-hour return OTP validity
+  - Original OTP revocation on cancellation
+  - Sender notification trigger
+  - Severity levels (URGENT at <4h remaining, WARNING at <12h)
+  - Package retrieval tracking
 
 ---
 
