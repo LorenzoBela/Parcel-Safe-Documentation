@@ -769,11 +769,27 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 
 | Solution | Implementation |
 |----------|----------------|
-| Idempotency key | delivery_id is unique |
-| Upsert | Update if exists |
-| Deduplication | Backend rejects duplicates |
+| Idempotency key | `delivery_id:otp_code:issued_at` combined key |
+| Upsert | `setDeliveryWithIdempotency()` updates if exists |
+| Deduplication | `checkForDuplicate()` returns NEW/SAME/UPDATE/REJECTED |
 
-**Status:** ⬜ Check backend
+**Implementation:**
+- Hardware: `DeliveryState.h` - `DuplicateCheckResult` enum, idempotency key tracking
+- Mobile: `firebaseClient.ts` - `generateIdempotencyKey()`, `assignDeliveryWithIdempotency()`
+- Web: `firebaseClient.ts` - Admin monitoring with `subscribeToDuplicateEvents()`
+
+**Files Modified:**
+- `hardware/lib/DeliveryState/DeliveryState.h` - Added EC-47 idempotency methods
+- `hardware/src/main.cpp` - Uses `setDeliveryWithIdempotency()` for OTP assignment
+- `mobile/src/services/firebaseClient.ts` - Added idempotency interfaces
+- `web/src/lib/firebaseClient.ts` - Added admin duplicate monitoring
+
+**Test Coverage:**
+- `hardware/test/test_data_integrity.h` - 11 EC-47 unit tests
+- `mobile/src/__tests__/DataIntegrity.test.ts` - Idempotency scenario tests
+- `web/src/lib/__tests__/dataIntegrity.test.ts` - Admin dashboard tests
+
+**Status:** ✅ Implemented
 
 ---
 
@@ -782,11 +798,36 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 
 | Solution | Implementation |
 |----------|----------------|
-| Checksums | Validate JSON integrity |
-| Backup | Critical data in RTC memory |
-| Recovery | Re-fetch from Firebase on boot |
+| Checksums | CRC32 validation via `DataIntegrity.h` |
+| Backup | `RTC_DATA_ATTR RtcBackupData` survives soft reset |
+| Recovery | `loadWithIntegrity()` → RTC → Firebase cascade |
 
-**Status:** ⬜ TODO
+**Implementation:**
+- Hardware: `DataIntegrity.h` - CRC32 calculation, RTC backup, JSON checksum wrapper
+- Hardware: `PhotoQueue.cpp` - `loadQueueStateWithIntegrity()`, `recoverFromCorruption()`
+- Hardware: `DeliveryState.h` - `validateIntegrity()`, `applyFirebaseRecovery()`
+- Mobile/Web: `firebaseClient.ts` - `DataIntegrityState`, recovery status monitoring
+
+**Recovery Flow:**
+1. `loadJsonWithChecksum()` validates CRC32
+2. On failure → `validateRtcBackup()` attempts RTC recovery
+3. On RTC failure → `needsFirebaseRecovery` flag triggers Firebase re-fetch
+4. `reportIntegrityStatusToFirebase()` logs corruption events
+
+**Files Modified:**
+- `hardware/lib/DataIntegrity/DataIntegrity.h` - NEW: CRC32, RTC backup, recovery
+- `hardware/lib/PhotoQueue/PhotoQueue.cpp` - Added checksum validation
+- `hardware/lib/DeliveryState/DeliveryState.h` - Added integrity validation
+- `hardware/src/main.cpp` - RTC_DATA_ATTR backup, integrity checks
+- `mobile/src/services/firebaseClient.ts` - Added integrity interfaces
+- `web/src/lib/firebaseClient.ts` - Added corruption alert monitoring
+
+**Test Coverage:**
+- `hardware/test/test_data_integrity.h` - 16 EC-48 unit tests (CRC32, RTC, recovery)
+- `mobile/src/__tests__/DataIntegrity.test.ts` - Integrity state tests
+- `web/src/lib/__tests__/dataIntegrity.test.ts` - Admin severity assessment tests
+
+**Status:** ✅ Implemented
 
 ---
 
@@ -1227,11 +1268,11 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Priority | Count | Edge Cases |
 |----------|-------|------------|
 | 🔴 P0 (Critical) | 6 | EC-01, EC-06, EC-18, EC-31, EC-77, EC-80 |
-| 🟡 P1 (High) | 16 | EC-02, EC-03, EC-04, EC-07, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, EC-48, EC-59, EC-61, EC-67, EC-70, EC-78 |
-| 🟢 P2 (Medium) | 20 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, EC-29, EC-32, EC-35, EC-42, EC-46, EC-47, EC-49, EC-54, EC-55, EC-56, EC-57, EC-62, EC-69, EC-72, EC-75, EC-79 |
+| 🟡 P1 (High) | 16 | EC-02, EC-03, EC-04, EC-07, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, EC-78 |
+| 🟢 P2 (Medium) | 20 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, EC-29, EC-32, EC-35, EC-42, EC-46, ~~EC-47~~✅, EC-49, EC-54, EC-55, EC-56, EC-57, EC-62, EC-69, EC-72, EC-75, EC-79 |
 | 🔵 P3 (Low) | 38+ | All others |
 
-**Completed in this session:** EC-21, EC-22, EC-23, EC-25
+**Completed:** EC-21, EC-22, EC-23, EC-25, EC-47, EC-48
 
 ---
 
@@ -1258,6 +1299,8 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | EC-25 (Brownout) | SPIFFS state persistence + auto-resume + reboot event |
 | EC-31 (Disputed) | Photo + GPS + OTP log |
 | EC-46 (Clock Skew) | Firebase server time |
+| EC-47 (Duplicate Records) | Idempotency key + upsert logic + duplicate detection |
+| EC-48 (SPIFFS Corruption) | CRC32 checksum + RTC backup + Firebase recovery |
 | EC-60 (DST) | UTC everywhere |
 
 **Total Edge Cases Documented: 80**

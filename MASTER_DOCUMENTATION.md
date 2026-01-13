@@ -406,7 +406,7 @@ OVERALL:        ████████████████░░░░░�
 | 📱 Mobile Specific | EC-36 to EC-38 | 3 | 0 (0%) |
 | 💰 Financial | EC-39 to EC-41 | 3 | 0 (0%) |
 | ⚖️ Legal/Regulatory | EC-42 to EC-45 | 4 | 1 (25%) |
-| 📊 Data Integrity | EC-46 to EC-49 | 4 | 2 (50%) |
+| 📊 Data Integrity | EC-46 to EC-49 | 4 | 4 (100%) |
 | 🎨 User Experience | EC-50 to EC-53 | 4 | 0 (0%) |
 | 📈 Scalability | EC-54 to EC-56 | 3 | 0 (0%) |
 | 🔄 Lifecycle | EC-57 to EC-60 | 4 | 1 (25%) |
@@ -415,7 +415,7 @@ OVERALL:        ████████████████░░░░░�
 | 🔧 Hardware Lifecycle | EC-69 to EC-72 | 4 | 0 (0%) |
 | 📅 Time-Based | EC-73 to EC-76 | 4 | 0 (0%) |
 | ⚡ Concurrency | EC-77 to EC-80 | 4 | 0 (0%) |
-| **Total** | | **80** | **24 (30%)** |
+| **Total** | | **80** | **26 (33%)** |
 
 ---
 
@@ -472,6 +472,31 @@ OVERALL:        ████████████████░░░░░�
 
 ---
 
+### 📊 Data Integrity (EC-46 to EC-49) - ALL DONE
+
+| ID | Scenario | Solution | Status |
+|----|----------|----------|--------|
+| **EC-46** | Firebase Clock Skew | Use Firebase `.sv` server timestamp, NTP sync on boot | ✅ Done |
+| **EC-47** | Duplicate Delivery Records | Idempotency key (`delivery_id:otp_code:timestamp`), upsert logic | ✅ Done |
+| **EC-48** | SPIFFS Data Corruption | CRC32 checksum, RTC backup, Firebase recovery | ✅ Done |
+| **EC-49** | Out-of-Order Events | State machine with valid transition validation | ✅ Done |
+
+**EC-47 Implementation:**
+- `DeliveryState.h`: `setDeliveryWithIdempotency()`, `checkForDuplicate()` returns NEW/SAME/UPDATE/REJECTED
+- `firebaseClient.ts` (mobile/web): `generateIdempotencyKey()`, admin duplicate monitoring
+
+**EC-48 Implementation:**
+- `DataIntegrity.h`: CRC32 calculation, `RtcBackupData` structure, `validateRtcBackup()`
+- `PhotoQueue.cpp`: `loadQueueStateWithIntegrity()`, `recoverFromCorruption()`
+- `DeliveryState.h`: `loadWithIntegrity()`, `applyFirebaseRecovery()`
+
+**Test Files:**
+- `hardware/test/test_data_integrity.h` - 27 tests (EC-47: 11, EC-48: 16)
+- `mobile/src/__tests__/DataIntegrity.test.ts` - Mobile platform tests
+- `web/src/lib/__tests__/dataIntegrity.test.ts` - Web platform tests
+
+---
+
 ### Remaining Edge Cases (EC-26 to EC-80)
 
 | Range | Category | Count | Status |
@@ -482,7 +507,7 @@ OVERALL:        ████████████████░░░░░�
 | EC-36 to EC-38 | 📱 Mobile Specific (Multi-login, update) | 3 | ⬜ TODO |
 | EC-39 to EC-41 | 💰 Financial (Payment, COD) | 3 | ⬜ TODO |
 | EC-42 to EC-45 | ⚖️ Legal (GDPR, PII, Insurance) | 4 | 🔶 Partial |
-| EC-46 to EC-49 | 📊 Data Integrity (Duplicates, corruption) | 4 | 🔶 Partial |
+| EC-46 to EC-49 | 📊 Data Integrity (Duplicates, corruption) | 4 | ✅ Done |
 | EC-50 to EC-53 | 🎨 UX (Panic, Language, Accessibility) | 4 | ⬜ TODO |
 | EC-54 to EC-56 | 📈 Scalability (1000 concurrent, quota) | 3 | ⬜ TODO |
 | EC-57 to EC-60 | 🔄 Lifecycle (OTA, Decommission, DST) | 4 | 🔶 Partial |
