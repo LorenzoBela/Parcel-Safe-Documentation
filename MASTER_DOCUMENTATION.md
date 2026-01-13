@@ -48,7 +48,7 @@
 | 🌐 Web Portal Use Cases | 10 | 9 | 8 | 90% |
 | 📱 Mobile Use Cases | 10 | 9 | 8 | 90% |
 | 🔌 Integration Use Cases | 4 | 1 | 0 | 25% |
-| ⚡ Edge Cases | 80 | 24 | 20 | 30% |
+| ⚡ Edge Cases | 80 | 27 | 23 | 34% |
 | 📏 Boundary Cases | 116 | 95 | 85 | 82% |
 | ❌ Negative Cases | 120 | 90 | 80 | 75% |
 | 🔄 State Transitions | 109 | 70 | 65 | 64% |
@@ -179,12 +179,12 @@ Thesis 24-25 Smart Top Box/
 
 ```
 Use Cases:      ████████████████████░░░░ 82%  (94/114)
-Edge Cases:     ███████░░░░░░░░░░░░░░░░░ 30%  (24/80)
+Edge Cases:     ████████░░░░░░░░░░░░░░░░ 34%  (27/80)
 Boundary Tests: ████████████████████░░░░ 82%  (95/116)
 Negative Tests: ██████████████████░░░░░░ 75%  (90/120)
 State Tests:    ████████████████░░░░░░░░ 64%  (70/109)
 ────────────────────────────────────────────────
-OVERALL:        ████████████████░░░░░░░░ 69%  (373/539)
+OVERALL:        ████████████████░░░░░░░░ 70%  (376/539)
 ```
 
 ### Recent Completions (January 2026)
@@ -195,6 +195,9 @@ OVERALL:        ████████████████░░░░░�
 | EC-22 | Solenoid Stuck Open | Hardware, Web, Mobile | ✅ Done |
 | EC-23 | Camera Failure Recovery | Hardware, Web, Mobile | ✅ Done |
 | EC-25 | ESP32 Brownout Recovery | Hardware, Web, Mobile | ✅ Done |
+| EC-55 | Firebase Quota Exceeded | Web, Mobile | ✅ Done |
+| EC-56 | Photo Upload Bandwidth | Hardware, Mobile, Web | ✅ Done |
+| EC-68 | Residential vs Business Address | Mobile, Web | ✅ Done |
 | EC-11 | Customer Not Home | Mobile, Web | ✅ Done |
 | EC-12 | Wrong Address Correction | Mobile, Web | ✅ Done |
 | EC-15 | Background Location | Mobile | ✅ Done |
@@ -408,14 +411,14 @@ OVERALL:        ████████████████░░░░░�
 | ⚖️ Legal/Regulatory | EC-42 to EC-45 | 4 | 1 (25%) |
 | 📊 Data Integrity | EC-46 to EC-49 | 4 | 4 (100%) |
 | 🎨 User Experience | EC-50 to EC-53 | 4 | 0 (0%) |
-| 📈 Scalability | EC-54 to EC-56 | 3 | 0 (0%) |
+| 📈 Scalability | EC-54 to EC-56 | 3 | 2 (67%) |
 | 🔄 Lifecycle | EC-57 to EC-60 | 4 | 1 (25%) |
 | 🌐 Network | EC-61 to EC-64 | 4 | 0 (0%) |
-| 👥 Multi-Entity | EC-65 to EC-68 | 4 | 0 (0%) |
+| 👥 Multi-Entity | EC-65 to EC-68 | 4 | 1 (25%) |
 | 🔧 Hardware Lifecycle | EC-69 to EC-72 | 4 | 0 (0%) |
 | 📅 Time-Based | EC-73 to EC-76 | 4 | 0 (0%) |
 | ⚡ Concurrency | EC-77 to EC-80 | 4 | 0 (0%) |
-| **Total** | | **80** | **26 (33%)** |
+| **Total** | | **80** | **29 (36%)** |
 
 ---
 
@@ -509,10 +512,10 @@ OVERALL:        ████████████████░░░░░�
 | EC-42 to EC-45 | ⚖️ Legal (GDPR, PII, Insurance) | 4 | 🔶 Partial |
 | EC-46 to EC-49 | 📊 Data Integrity (Duplicates, corruption) | 4 | ✅ Done |
 | EC-50 to EC-53 | 🎨 UX (Panic, Language, Accessibility) | 4 | ⬜ TODO |
-| EC-54 to EC-56 | 📈 Scalability (1000 concurrent, quota) | 3 | ⬜ TODO |
+| EC-54 to EC-56 | 📈 Scalability (1000 concurrent, quota) | 3 | 🔶 Partial (EC-55, EC-56 ✅) |
 | EC-57 to EC-60 | 🔄 Lifecycle (OTA, Decommission, DST) | 4 | 🔶 Partial |
 | EC-61 to EC-64 | 🌐 Network (WiFi switch, captive portal) | 4 | ⬜ TODO |
-| EC-65 to EC-68 | 👥 Multi-Entity (Two riders, handover) | 4 | ⬜ TODO |
+| EC-65 to EC-68 | 👥 Multi-Entity (Two riders, handover) | 4 | 🔶 Partial (EC-68 ✅) |
 | EC-69 to EC-72 | 🔧 Hardware Lifecycle (Calibration, wear) | 4 | ⬜ TODO |
 | EC-73 to EC-76 | 📅 Time-Based (Leap year, holidays) | 4 | ⬜ TODO |
 | EC-77 to EC-80 | ⚡ Concurrency (Override, reassignment) | 4 | ⬜ TODO |
@@ -913,21 +916,36 @@ jobs:
 - ✅ EC-23: Camera failure - 3x retry, metadata fallback, flagged review
 - ✅ EC-25: ESP32 brownout - SPIFFS persistence, auto-resume, boot counter
 
+**Scalability & Performance (EC-55, EC-56):**
+- ✅ EC-55: Firebase quota exceeded - 80%/95% alerts, local caching, fetch interval reduction
+- ✅ EC-56: Photo upload bandwidth - 800px/60% compression, priority queue (GPS > Status > Photo)
+
+**Multi-Entity (EC-68):**
+- ✅ EC-68: Residential vs business address - Address type field, dynamic geofence (50m/100m)
+
 **New Files Created:**
 - `hardware/lib/LockControl/LockControl.h` - Enhanced with feedback sensor
 - `hardware/lib/PhotoCapture/PhotoCapture.h` - Retry and fallback system
 - `hardware/lib/DeliveryState/DeliveryState.h` - SPIFFS persistence
 - `web/src/components/HardwareStatusPanel.tsx` - Admin dashboard
 - `web/src/components/HardwareAlertBanner.tsx` - Customer alerts
+- `web/src/components/QuotaAlertBanner.tsx` - EC-55: Firebase quota alerts
 - `mobile/src/components/HardwareAlertBanner.tsx` - Mobile alerts
 - `mobile/src/components/HardwareStatusBadge.tsx` - Status badge
 - `mobile/src/screens/rider/HardwareStatusScreen.tsx` - Detailed view
 - `mobile/src/hooks/useHardwareStatus.ts` - React hook
 - `mobile/src/services/hardwareStatusService.ts` - Business logic
+- `mobile/src/services/quotaMonitorService.ts` - EC-55: Quota monitoring with caching
+- `mobile/src/services/photoCompressionService.ts` - EC-56: Photo compression
 
 **Tests Added:**
 - `web/src/lib/__tests__/hardwareFailures.test.ts` - 25 tests
+- `web/src/lib/__tests__/quotaMonitoring.test.ts` - 56 tests (EC-55)
+- `web/src/lib/__tests__/photoUpload.test.ts` - 45 tests (EC-56)
+- `web/src/lib/__tests__/addressTypeValidation.test.ts` - 42 tests (EC-68)
 - `mobile/src/__tests__/hardwareStatus.test.ts` - 30 tests
+- `mobile/src/__tests__/QuotaMonitoring.test.ts` - 52 tests (EC-55)
+- `mobile/src/__tests__/AddressTypeGeofence.test.ts` - 48 tests (EC-68)
 - `hardware/test/test_edge_cases.h` - Updated with EC-21 to EC-25
 
 ### Previous Implementations

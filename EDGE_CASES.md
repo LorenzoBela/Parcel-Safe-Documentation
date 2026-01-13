@@ -918,11 +918,21 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 
 | Solution | Implementation |
 |----------|----------------|
-| Quota monitoring | Alert at 80% |
-| Local caching | Reduce read frequency |
+| Quota monitoring | Alert at 80%, critical at 95% |
+| Local caching | Reduce read frequency when near limit |
 | Blaze plan | Pay-as-you-go for prod |
 
-**Status:** ⬜ Monitor
+**Status:** ✅ Done - Full implementation
+- Web: `firebaseClient.ts` - Quota state types, `subscribeToQuotaState()`, alert level calculation
+- Web: `QuotaAlertBanner.tsx` - Admin UI component with expandable details
+- Mobile: `quotaMonitorService.ts` - Local caching, quota tracking, graceful degradation
+- Tests: `quotaMonitoring.test.ts` (Web), `QuotaMonitoring.test.ts` (Mobile)
+- Features:
+  - Alert thresholds: WARNING at 80%, CRITICAL at 95%, EXCEEDED at 100%
+  - Automatic cache TTL extension when approaching limits (5 min vs 1 min)
+  - Fetch interval reduction (2x at 80%, 5x at 95%)
+  - Local operation counters with daily reset
+  - Bytes formatting utilities for UI display
 
 ---
 
@@ -935,7 +945,19 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Chunked upload | Resume on failure |
 | Priority queue | GPS > Status > Photo |
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Full implementation
+- Hardware: `PhotoQueue.h/.cpp` - Compression config, priority queue, chunked uploads
+- Mobile: `photoCompressionService.ts` - Client-side compression, priority management
+- Web: `firebaseClient.ts` - `PhotoUploadState` interface for monitoring
+- Tests: `photoUpload.test.ts` (Web)
+- Features:
+  - Max dimension: 800px (longest edge)
+  - JPEG quality: 60%
+  - Priority levels: GPS (0) > Status (1) > Photo (2)
+  - Upload progress tracking with byte-level accuracy
+  - Resumable uploads with chunk validation (4KB chunks)
+  - Bandwidth estimation with exponential moving average
+  - Compression statistics (ratio, bytes saved)
 
 ---
 
@@ -1093,11 +1115,22 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 
 | Solution | Implementation |
 |----------|----------------|
-| Address type field | Customer specifies type |
-| Instructions | Prompt for building name/unit |
-| Geofence size | Larger for business complexes |
+| Address type field | Customer specifies type (RESIDENTIAL/BUSINESS/OTHER) |
+| Instructions | Prompt for building name/unit for business |
+| Geofence size | 50m residential, 100m business complexes |
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Full implementation
+- Mobile: `addressUpdateService.ts` - `AddressType` enum, `validateBusinessAddress()`, geofence helpers
+- Web: `addressUpdate.ts` - Address type validation, formatting, geofence creation
+- Tests: `addressTypeValidation.test.ts` (Web), `AddressTypeGeofence.test.ts` (Mobile)
+- Features:
+  - Address types: RESIDENTIAL (50m), BUSINESS (100m), OTHER (50m)
+  - Business addresses require building name OR unit number
+  - `suggestAddressType()` heuristic based on address keywords
+  - `needsBusinessDetails()` prompt helper for UI
+  - `formatAddressWithDetails()` with building/floor/unit formatting
+  - Dynamic geofence creation: `createGeofenceForAddressType()`
+  - Maximum geofence radius capped at 200m
 
 ---
 
@@ -1269,10 +1302,10 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 |----------|-------|------------|
 | 🔴 P0 (Critical) | 6 | EC-01, EC-06, EC-18, EC-31, EC-77, EC-80 |
 | 🟡 P1 (High) | 16 | EC-02, EC-03, EC-04, EC-07, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, EC-78 |
-| 🟢 P2 (Medium) | 20 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, EC-29, EC-32, EC-35, EC-42, EC-46, ~~EC-47~~✅, EC-49, EC-54, EC-55, EC-56, EC-57, EC-62, EC-69, EC-72, EC-75, EC-79 |
+| 🟢 P2 (Medium) | 20 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, EC-29, EC-32, EC-35, EC-42, EC-46, ~~EC-47~~✅, EC-49, EC-54, ~~EC-55~~✅, ~~EC-56~~✅, EC-57, EC-62, ~~EC-68~~✅, EC-69, EC-72, EC-75, EC-79 |
 | 🔵 P3 (Low) | 38+ | All others |
 
-**Completed:** EC-21, EC-22, EC-23, EC-25, EC-47, EC-48
+**Completed:** EC-21, EC-22, EC-23, EC-25, EC-47, EC-48, EC-55, EC-56, EC-68
 
 ---
 
@@ -1301,6 +1334,10 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | EC-46 (Clock Skew) | Firebase server time |
 | EC-47 (Duplicate Records) | Idempotency key + upsert logic + duplicate detection |
 | EC-48 (SPIFFS Corruption) | CRC32 checksum + RTC backup + Firebase recovery |
+| EC-55 (Firebase Quota) | 80%/95% alerts + local caching + fetch interval reduction |
+| EC-56 (Photo Bandwidth) | 800px/60% compression + priority queue + resumable uploads |
 | EC-60 (DST) | UTC everywhere |
+| EC-68 (Res/Bus Address) | Address type field + dynamic geofence (50m/100m) + building details |
 
 **Total Edge Cases Documented: 80**
+**Total Edge Cases Implemented: 27**
