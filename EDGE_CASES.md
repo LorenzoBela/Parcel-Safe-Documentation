@@ -282,6 +282,10 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 - [x] Kill app during active tracking (EC-15) ✅ Unit tests pass
 - [x] Customer not home wait timer (EC-11) ✅ Unit tests pass
 - [x] Wrong address geofence expansion (EC-12) ✅ Unit tests pass
+- [x] Solenoid stuck closed retry (EC-21) ✅ Unit tests pass
+- [x] Solenoid stuck open detection (EC-22) ✅ Unit tests pass
+- [x] Camera failure with retry (EC-23) ✅ Unit tests pass
+- [x] ESP32 brownout recovery (EC-25) ✅ Unit tests pass
 - [ ] Network switch during upload (EC-61)
 - [ ] Captive portal WiFi detection (EC-62)
 - [ ] Two riders at same location (EC-65)
@@ -372,7 +376,18 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Power cycle | Retry solenoid 3x with delays |
 | Alert | Ping support automatically |
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Full implementation
+- ESP32 firmware: `LockControl.h` - Retry logic with configurable attempts
+- `SOLENOID_MAX_RETRIES = 3`, `SOLENOID_RETRY_DELAY_MS = 500`
+- Feedback sensor support for state verification
+- Firebase reporting: `hardware/{boxId}/solenoid` with status, retry_count, severity
+- Tests: `test_ec21_*` in `test_edge_cases.h`, `hardwareFailures.test.ts`
+- Features:
+  - 3 automatic retry attempts with 500ms delays
+  - Lock feedback sensor verification after each attempt
+  - Safety timeout (5s max energized) to prevent coil damage
+  - Detailed Firebase alerts with severity: HIGH
+  - Audit trail logging
 
 ---
 
@@ -385,7 +400,18 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Alert | Immediate notification |
 | Disable deliveries | Mark box as "Out of Service" |
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Full implementation
+- ESP32 firmware: `LockControl.h` - `markOutOfService()`, `isOutOfService()`
+- Feedback sensor detection on lock() attempt
+- Firebase reporting: `hardware/{boxId}/solenoid` with severity: CRITICAL
+- Web: `subscribeToSolenoid()` for real-time monitoring
+- Tests: `test_ec22_*` in `test_edge_cases.h`, `hardwareFailures.test.ts`
+- Features:
+  - Lock state verification via feedback sensor (Pin 32)
+  - Automatic out-of-service marking when lock fails
+  - Blocks all unlock attempts when out of service
+  - Immediate Firebase notification with "unsecured" warning
+  - `shouldBlockDeliveries()` helper for UI decisions
 
 ---
 
@@ -399,7 +425,20 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Placeholder | Save metadata even if image fails |
 | Alert | Notify admin of camera issues |
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Full implementation
+- ESP32 firmware: `PhotoCapture.h` - Complete retry and fallback system
+- `CAMERA_MAX_RETRIES = 3`, `CAMERA_RETRY_DELAY_MS = 500`
+- Firebase reporting: `hardware/{boxId}/camera` with status, attempts, failure_reason
+- Web: `subscribeToCamera()`, `PhotoMetadata` interface
+- Tests: `test_ec23_*` in `test_edge_cases.h`, `hardwareFailures.test.ts`
+- Features:
+  - 3 retry attempts with 500ms delays
+  - `RETRY_SUCCESS` status when succeeds after retry
+  - Metadata always saved for audit (even on failure)
+  - `flagged_for_review` flag when delivery proceeds without photo
+  - Hardware error detection after 3 consecutive complete failures
+  - Delivery proceeds without photo (compliance with customer expectation)
+  - `canProceedWithoutPhoto()` helper returns true (with flag)
 
 ---
 
@@ -425,7 +464,21 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Auto-resume | Load state on boot, continue delivery |
 | Status report | Send "box_rebooted" event to Firebase |
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Full implementation
+- ESP32 firmware: `DeliveryState.h` - Complete SPIFFS persistence
+- State file: `/delivery_state.json` with full delivery context
+- Boot counter: `/boot_count.txt` for tracking reboots
+- Firebase reporting: `hardware/{boxId}/reboot` with restored_state
+- Web: `subscribeToReboot()`, `clearRebootFlag()`, `RebootState` interface
+- Tests: `test_ec25_*` in `test_edge_cases.h`, `hardwareFailures.test.ts`
+- Features:
+  - Auto-save on delivery assignment, arrival, unlock
+  - Periodic auto-save (30s interval) during active delivery
+  - Full state restoration: delivery_id, OTP, target, arrived, unlocked, power_state
+  - `wasRebootedDuringDelivery` flag for detection
+  - Boot count tracking for maintenance insights
+  - `shouldResumeDelivery()` helper for UI decisions
+  - Audit trail with restored_state details
 
 ---
 
@@ -1174,9 +1227,11 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Priority | Count | Edge Cases |
 |----------|-------|------------|
 | 🔴 P0 (Critical) | 6 | EC-01, EC-06, EC-18, EC-31, EC-77, EC-80 |
-| 🟡 P1 (High) | 16 | EC-02, EC-03, EC-04, EC-07, EC-19, EC-21, EC-22, EC-39, EC-41, EC-45, EC-48, EC-59, EC-61, EC-67, EC-70, EC-78 |
-| 🟢 P2 (Medium) | 20 | EC-08, EC-16, EC-23, EC-25, EC-29, EC-32, EC-35, EC-42, EC-46, EC-47, EC-49, EC-54, EC-55, EC-56, EC-57, EC-62, EC-69, EC-72, EC-75, EC-79 |
+| 🟡 P1 (High) | 16 | EC-02, EC-03, EC-04, EC-07, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, EC-48, EC-59, EC-61, EC-67, EC-70, EC-78 |
+| 🟢 P2 (Medium) | 20 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, EC-29, EC-32, EC-35, EC-42, EC-46, EC-47, EC-49, EC-54, EC-55, EC-56, EC-57, EC-62, EC-69, EC-72, EC-75, EC-79 |
 | 🔵 P3 (Low) | 38+ | All others |
+
+**Completed in this session:** EC-21, EC-22, EC-23, EC-25
 
 ---
 
@@ -1196,7 +1251,11 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | EC-15 (App Killed) | Foreground service (Android) + background location (iOS) + box GPS failover |
 | EC-17 (MITM) | Firebase TLS |
 | EC-18 (Tamper) | Reed switch + photo + lockdown |
+| EC-21 (Solenoid Closed) | 3x retry + feedback sensor + alerts + physical key fallback |
+| EC-22 (Solenoid Open) | Feedback sensor + out-of-service marking + blocks deliveries |
+| EC-23 (Camera Fail) | 3x retry + metadata fallback + flagged for review |
 | EC-24 (GPS Fail) | Phone GPS redundancy |
+| EC-25 (Brownout) | SPIFFS state persistence + auto-resume + reboot event |
 | EC-31 (Disputed) | Photo + GPS + OTP log |
 | EC-46 (Clock Skew) | Firebase server time |
 | EC-60 (DST) | UTC everywhere |
