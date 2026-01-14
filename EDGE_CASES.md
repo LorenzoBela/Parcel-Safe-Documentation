@@ -642,7 +642,16 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Reconciliation | Backend marks complete on photo receipt |
 | Fallback | Rider can manually mark complete in app |
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Full implementation
+- Hardware: `StatusUpdateQueueEC35` with exponential backoff (1s-16s, max 5 retries)
+- Mobile: `statusUpdateService.ts` with AsyncStorage persistence, manual "Mark Complete" fallback
+- Web: `subscribeToStatusQueue()`, `retryStatusUpdate()`, `reconcileOnPhotoReceipt()`
+- Tests: `test_ec35_*` in hardware, `ec35StatusUpdateLost.test.ts` in mobile/web
+- Features:
+  - Queue up to 10 pending status updates
+  - Exponential backoff retry (1s, 2s, 4s, 8s, 16s)
+  - Auto-reconcile when photo upload succeeds
+  - Rider can manually mark complete as last resort
 
 ---
 
@@ -656,7 +665,16 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Single device | Force logout on new login |
 | Device binding | Lock account to one device |
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Full implementation
+- Mobile: `sessionService.ts` with device binding, force logout on new login
+- Web: `subscribeToActiveSession()`, `forceEndSession()`, admin session list
+- Hardware: Session-bound OTP validation (`validateOtpWithSessionEC36()`)
+- Tests: `test_ec36_*` in hardware, `ec36MultipleRiders.test.ts` in mobile, `ec36SessionManagement.test.ts` in web
+- Features:
+  - Device ID-based session tracking
+  - Immediate force logout on new device login
+  - Session conflict detection and messaging
+  - Admin visibility into active sessions
 
 ---
 
