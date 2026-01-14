@@ -361,7 +361,15 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Unique generation | OTP tied to delivery_id + box_id + timestamp |
 | Collision check | Backend rejects duplicate OTPs |
 
-**Status:** ⬜ Check backend logic
+**Status:** ✅ Done - OTP collision prevention implemented
+- Web: `generateSecureOtp()`, `checkOtpCollision()`, `assignOtpWithCollisionCheck()` in firebaseClient.ts
+- Mobile: Same functions in mobile firebaseClient.ts
+- Hardware: `generateOtpHashEC20()`, `checkOtpCollisionEC20()` in test_edge_cases.h
+- Tests: `test_ec20_*` in web and hardware
+- Features:
+  - Cryptographically random 6-digit OTP generation
+  - OTP hash combining delivery_id + box_id + timestamp
+  - Up to 3 retry attempts if collision detected
 
 ---
 
@@ -534,7 +542,17 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Time limit | OTP expires in 4 hours |
 | Delivery cancellation | Customer can cancel if compromised |
 
-**Status:** ⬜ TODO - OTP refresh API
+**Status:** ✅ Done - Instant OTP regeneration implemented
+- Web: `requestOtpRegeneration()` with instant regeneration in firebaseClient.ts
+- Mobile: Same function in mobile firebaseClient.ts
+- Hardware: `canRegenerateOtpEC29()`, `recordRegenerationEC29()` in test_edge_cases.h
+- Tests: `test_ec29_*` in web and hardware
+- Features:
+  - Instant OTP regeneration (no approval needed)
+  - 10-minute cooldown between requests
+  - Maximum 5 regenerations per delivery
+  - Old OTP automatically invalidated
+  - Full regeneration history tracking
 
 ---
 

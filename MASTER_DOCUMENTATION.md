@@ -205,6 +205,8 @@ OVERALL:        ████████████████░░░░░�
 | EC-77 | Admin Override During OTP Entry | Hardware, Mobile, Web | ✅ Done |
 | EC-78 | Delivery Reassignment During Navigation | Hardware, Mobile, Web | ✅ Done |
 | EC-79 | Photo Upload and OTP Revocation Race | Hardware, Mobile, Web | ✅ Done |
+| EC-20 | OTP Collision Prevention | Hardware, Mobile, Web | ✅ Done |
+| EC-29 | Customer Shares OTP (Instant Regen) | Hardware, Mobile, Web | ✅ Done |
 
 ### Priority Matrix
 
@@ -405,10 +407,10 @@ OVERALL:        ████████████████░░░░░�
 |----------|----------|-------|-------------|
 | 🔴 Critical (P0) | EC-01 to EC-06 | 6 | 6 (100%) |
 | 🟡 High (P1) | EC-07 to EC-15 | 9 | 6 (67%) |
-| 🔵 Security | EC-16 to EC-20 | 5 | 2 (40%) |
+| 🔵 Security | EC-16 to EC-20 | 5 | 3 (60%) |
 | 🟤 Hardware | EC-21 to EC-25 | 5 | 5 (100%) |
 | 🌡️ Environmental | EC-26 to EC-28 | 3 | 0 (0%) |
-| 👥 Multi-Party | EC-29 to EC-32 | 4 | 2 (50%) |
+| 👥 Multi-Party | EC-29 to EC-32 | 4 | 3 (75%) |
 | ⚡ Race Conditions | EC-33 to EC-35 | 3 | 0 (0%) |
 | 📱 Mobile Specific | EC-36 to EC-38 | 3 | 0 (0%) |
 | 💰 Financial | EC-39 to EC-41 | 3 | 0 (0%) |
@@ -463,7 +465,7 @@ OVERALL:        ████████████████░░░░░�
 | **EC-17** | Man-in-the-Middle on Location | Firebase TLS | ✅ Done |
 | **EC-18** | Physical Tampering (Pried Open) | Reed switch, photo, lockdown | ✅ Done |
 | **EC-19** | Stolen Phone with Rider App | Biometric, session timeout | ⬜ TODO |
-| **EC-20** | Delivery ID Collision | Unique generation | ⬜ TODO |
+| **EC-20** | Delivery ID Collision | Unique OTP hash (delivery+box+timestamp), collision check | ✅ Done |
 
 ---
 
@@ -509,7 +511,7 @@ OVERALL:        ████████████████░░░░░�
 | Range | Category | Count | Status |
 |-------|----------|-------|--------|
 | EC-26 to EC-28 | 🌡️ Environmental (Heat, Rain, Vibration) | 3 | ⬜ TODO |
-| EC-29 to EC-32 | 👥 Multi-Party (OTP shared, wrong person) | 4 | 🔶 Partial |
+| EC-29 to EC-32 | 👥 Multi-Party (OTP shared, wrong person) | 4 | 🟡 Partial (EC-29 ✅, EC-32 ✅) |
 | EC-33 to EC-35 | ⚡ Race Conditions | 3 | ⬜ TODO |
 | EC-36 to EC-38 | 📱 Mobile Specific (Multi-login, update) | 3 | ⬜ TODO |
 | EC-39 to EC-41 | 💰 Financial (Payment, COD) | 3 | ⬜ TODO |
