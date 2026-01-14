@@ -48,7 +48,7 @@
 | 🌐 Web Portal Use Cases | 10 | 9 | 8 | 90% |
 | 📱 Mobile Use Cases | 10 | 9 | 8 | 90% |
 | 🔌 Integration Use Cases | 4 | 1 | 0 | 25% |
-| ⚡ Edge Cases | 80 | 32 | 28 | 40% |
+| ⚡ Edge Cases | 80 | 34 | 30 | 43% |
 | 📏 Boundary Cases | 116 | 95 | 85 | 82% |
 | ❌ Negative Cases | 120 | 90 | 80 | 75% |
 | 🔄 State Transitions | 109 | 70 | 65 | 64% |

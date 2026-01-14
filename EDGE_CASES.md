@@ -887,7 +887,13 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Last-write-wins | Use timestamps |
 | Validation | Reject invalid sequences |
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done
+
+**Implementation Details:**
+- **Hardware:** Added `DeliveryStatus` enum, `isValidTransition()`, event buffering, and diagnostic methods to `DeliveryState.h`
+- **Web:** Added `validateDeliveryTransition()`, `subscribeToOutOfOrderEvents()`, `recordOutOfOrderEvent()` to `firebaseClient.ts`
+- **UI:** Created `OutOfOrderEventBanner.tsx` for admin/customer alerts
+- **Tests:** Added 11 hardware tests and 23 web tests covering valid/invalid transitions, terminal states, and sequence paths
 
 ---
 
@@ -1140,7 +1146,12 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Separate OTPs | Each delivery independent |
 | Combined notifications | Group notifications logically |
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done
+
+**Implementation Details:**
+- **Web:** Added `MultiDeliveryState`, `DeliveryInfo` interfaces, `subscribeToMultipleDeliveries()`, `hasMultipleActiveDeliveries()`, `groupSimultaneousArrivals()`, `getDistinctOtpCodes()` to `firebaseClient.ts`
+- **UI:** Created `MultiDeliveryView.tsx` component with card-based layout, distinct color coding, individual OTP display, and combined map markers
+- **Tests:** Added 14 web tests covering multi-delivery detection, active filtering, OTP separation, arrival grouping, and summary formatting
 
 ---
 
