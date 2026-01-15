@@ -1791,26 +1791,466 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 
 ---
 
+## 🔐 Authentication & Session Edge Cases
+
+### EC-89: Zombie Token (Auth Expiry Mid-Delivery)
+**Scenario:** Rider's authentication token expires mid-delivery (typical 1-hour Firebase token limit).
+
+| Symptom | Implementation |
+|---------|----------------|
+| Upload fails with 401 Unauthorized | Token expired between request start |
+| Rider stuck at dropoff | Cannot complete delivery actions |
+| Silent failure | App may not show clear error |
+
+| Solution | Implementation |
+|----------|----------------|
+| Proactive refresh | Refresh token 5 minutes before expiry |
+| Token age tracking | Monitor `auth.currentUser.getIdToken()` issued time |
+| Background refresh | Silent refresh in background task |
+| Graceful degradation | Queue actions if refresh fails, retry on reconnect |
+
+**Firebase Token Flow:**
+```
+1. Token issued at login (valid 1 hour)
+2. Every 55 minutes: background refresh request
+3. On network failure: queue refresh, retry with backoff
+4. On manual action: verify token age, refresh if >50 min old
+5. On 401 error: immediate refresh attempt before retry
+```
+
+**Mobile Implementation:**
+- Timer checks token age every 5 minutes
+- Automatic refresh if token age > 55 minutes
+- Failed refresh triggers "Session Expiring" warning
+- Hard failure after 3 refresh attempts → force re-login
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-90: Brownout Actuation (Low Voltage Lockout)
+**Scenario:** Battery is low. Firing the solenoid causes voltage sag, rebooting the ESP32 mid-unlock.
+
+| Symptom | Implementation |
+|---------|----------------|
+| ESP32 reboots during unlock | Voltage drops below 3.0V (ESP32 minimum) |
+| Lock stays closed | Solenoid didn't complete actuation |
+| Customer frustrated | Valid OTP, but box won't open |
+
+| Solution | Implementation |
+|----------|----------------|
+| Low-voltage lockout | Disable solenoid if V < 11.5V (12V system) |
+| Pre-check | Measure voltage BEFORE firing solenoid |
+| Capacitor bank | Hardware: Large capacitor to buffer solenoid surge |
+| User notification | "Battery too low to unlock - charge required" |
+
+**Voltage Thresholds (12V System):**
+| Voltage | State | Action |
+|---------|-------|--------|
+| > 12.0V | HEALTHY | Normal operation |
+| 11.5-12.0V | WARNING | Allow unlock but warn rider |
+| < 11.5V | CRITICAL | **Block solenoid actuation** |
+| < 10.5V | DEAD | ESP32 may not boot |
+
+**Firebase Data Structure:**
+```
+/boxes/{mac_address}/power
+├── voltage: float
+├── solenoid_blocked: boolean
+├── low_voltage_since: timestamp
+└── last_successful_unlock_voltage: float
+```
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-91: Priority Interrupt Crash (Resource Conflict)
+**Scenario:** Camera is writing to SD/SPIFFS (heavy operation) while user mashes keypad (interrupts).
+
+| Symptom | Implementation |
+|---------|----------------|
+| WDT reset | Watchdog Timer triggers due to blocked loop |
+| Crash during photo save | Interrupt handler conflicts with SPI bus |
+| Corrupted photo | Partial write if interrupted |
+
+| Solution | Implementation |
+|----------|----------------|
+| Disable keypad interrupts | Temporarily disable during camera/SD operations |
+| Mutex/semaphore | SPI bus locking for shared resources |
+| Operation queue | Queue keypad events, process after camera done |
+| Watchdog feeding | Feed WDT during long operations |
+
+**Critical Sections:**
+| Operation | Duration | Keypad Disabled |
+|-----------|----------|-----------------|
+| Camera capture | ~500ms | YES |
+| SPIFFS write | ~200ms | YES |
+| Firebase upload | Async | NO |
+| OTP validation | ~10ms | NO |
+
+**Implementation:**
+```cpp
+// Before camera operation
+disableKeypadInterrupt();
+feedWatchdog();
+capturePhoto();
+saveToSPIFFS();
+enableKeypadInterrupt();
+processQueuedKeyEvents();
+```
+
+**Status:** ⬜ TODO
+
+---
+
+## 📍 Geofence & Location Edge Cases
+
+### EC-92: Urban Canyon Flicker (GPS Drift During OTP Entry)
+**Scenario:** GPS drifts 80m away due to signal reflection off buildings while user is mid-OTP entry.
+
+| Symptom | Implementation |
+|---------|----------------|
+| Keypad disables mid-input | Geofence says rider "left" |
+| Customer loses typed digits | OTP entry cancelled |
+| Frustrating user experience | Must wait for GPS to stabilize |
+
+| Solution | Implementation |
+|----------|----------------|
+| Geofence grace period | Once entered, stay "arrived" for 3 minutes |
+| OTP entry lock | Never disable keypad while digits being entered |
+| Hysteresis | Require 60m distance sustained for 30 seconds to leave |
+
+**State Machine:**
+```
+APPROACHING → (< 50m) → ARRIVED
+ARRIVED → (OTP entry started) → LOCKED_FOR_ENTRY
+LOCKED_FOR_ENTRY → (3 min timeout OR unlock success) → COMPLETED
+ARRIVED → (> 60m for 30s AND no OTP activity) → DEPARTED
+```
+
+**Grace Period Logic:**
+| Event | Grace Period |
+|-------|--------------|
+| First < 50m detected | Start 3-minute grace |
+| OTP digit entered | Reset to 3 minutes |
+| Correct OTP entered | Immediate unlock |
+| Grace expires + outside fence | Allow departure detection |
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-93: Zombie Delivery (Return to Warehouse)
+**Scenario:** Delivery failed multiple times. Rider returns to warehouse but box won't open (still geolocked to customer address).
+
+| Symptom | Implementation |
+|---------|----------------|
+| Box won't unlock at warehouse | Geofence thinks it's wrong location |
+| Package stuck in box | No way to retrieve for re-routing |
+| Rider blocked on other deliveries | Box full with undeliverable package |
+
+| Solution | Implementation |
+|----------|----------------|
+| Master Home Base | Hardcoded warehouse coordinates always valid |
+| Return Mode OTP | Special "RETURN-XXXXXX" code ignores geofence |
+| Admin override | Support can force-unlock from dashboard |
+| Multi-location whitelist | Box accepts unlock at any registered hub |
+
+**Warehouse Whitelist:**
+```
+/boxes/{mac_address}/config
+├── home_bases: [
+│   { lat: 14.5995, lng: 120.9842, name: "Main Warehouse", radius_m: 200 },
+│   { lat: 14.6512, lng: 121.0497, name: "East Hub", radius_m: 100 }
+│ ]
+└── return_mode_enabled: boolean
+```
+
+**Return Flow:**
+1. Rider marks delivery as "Failed - Returning"
+2. System generates RETURN-OTP (valid at ANY home base)
+3. Original customer OTP revoked
+4. Rider navigates to nearest hub
+5. Hub staff enters RETURN-OTP to retrieve package
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-94: Boundary Hopper (GPS Jitter at Geofence Edge)
+**Scenario:** Rider parks at exactly 50m radius edge. GPS jitters ±10m continuously.
+
+| Symptom | Implementation |
+|---------|----------------|
+| UI flickers "Arrived" / "Moving" | Status changes every second |
+| OTP appears/disappears | Customer confused |
+| Multiple notifications | "Your rider has arrived" spam |
+
+| Solution | Implementation |
+|----------|----------------|
+| State debouncing | Require >60m sustained for 30s to leave ARRIVED |
+| Entry threshold | Enter at 50m, exit at 60m (hysteresis) |
+| Notification cooldown | Max 1 "arrived" notification per delivery |
+
+**Hysteresis Implementation:**
+| Distance | Current State | Action |
+|----------|---------------|--------|
+| < 50m | IN_TRANSIT | → ARRIVED |
+| 50-60m | ARRIVED | Stay ARRIVED |
+| > 60m | ARRIVED | Start 30s departure timer |
+| > 60m for 30s | ARRIVED | → DEPARTED |
+| < 60m | (timer running) | Cancel departure timer |
+
+**Status:** ⬜ TODO
+
+---
+
+## 🔧 Hardware Robustness Edge Cases
+
+### EC-95: Sticky Reed Switch (Vibration False Alarm)
+**Scenario:** Pothole jars the magnetic reed switch for 200ms, triggering false "Tamper Alert" while driving.
+
+| Symptom | Implementation |
+|---------|----------------|
+| False tamper alert | Reed switch briefly opens from vibration |
+| Rider receives alarm while driving | Causes unnecessary panic |
+| Photo captures nothing useful | Photo of inside of moving box |
+
+| Solution | Implementation |
+|----------|----------------|
+| Debounce timer | Require sensor OPEN > 1 second before alarming |
+| Motion context | Ignore if accelerometer shows vehicle motion |
+| Stationary requirement | Only alarm if box stationary for 3+ seconds |
+
+**Tamper Detection Logic:**
+```cpp
+// Debounced tamper detection
+if (reedSwitchOpen) {
+  if (tamperOpenStart == 0) {
+    tamperOpenStart = millis();
+  } else if (millis() - tamperOpenStart > TAMPER_DEBOUNCE_MS) {  // 1000ms
+    if (!isVehicleMoving()) {  // Accelerometer check
+      triggerTamperAlert();
+    }
+  }
+} else {
+  tamperOpenStart = 0;  // Reset on close
+}
+```
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-96: Solenoid Heat Fade (Rapid Retry Overheating)
+**Scenario:** Mechanical latch stuck. System fires solenoid 10 times in rapid succession.
+
+| Symptom | Implementation |
+|---------|----------------|
+| Coil overheats | Continuous current through solenoid |
+| Plastic housing deforms | Heat damage to enclosure |
+| Permanent failure | Solenoid wire insulation melts |
+
+| Solution | Implementation |
+|----------|----------------|
+| Inter-attempt cooldown | Maximum 1 unlock attempt per 5 seconds |
+| Session limit | Maximum 3 attempts per delivery |
+| Thermal timeout | After 3 attempts, 10-minute mandatory cooldown |
+| Temperature sensor | Optional: monitor solenoid temperature directly |
+
+**Enhanced Retry Policy (Supplements EC-21):**
+| Attempt | Wait Before | Action on Fail |
+|---------|-------------|----------------|
+| 1 | 0s | Immediate retry after 5s cooldown |
+| 2 | 5s | Retry after 5s cooldown |
+| 3 | 5s | **STOP - 10 minute cooldown** |
+| 4+ | 10 min | Must wait for cooldown to expire |
+
+**Firebase Data Structure:**
+```
+/boxes/{mac_address}/solenoid_thermal
+├── attempts_this_session: int
+├── last_attempt_at: timestamp
+├── cooldown_until: timestamp
+├── thermal_lockout: boolean
+└── total_lifetime_actuations: int
+```
+
+**Status:** ⬜ TODO - Enhance existing EC-21 with thermal protection
+
+---
+
+### EC-97: Face Not Found Timeout (Camera Fallback)
+**Scenario:** Low light or customer wearing mask blocks optional face detection. Customer locked out despite valid OTP.
+
+| Symptom | Implementation |
+|---------|----------------|
+| Camera can't capture usable photo | Dark conditions or masked face |
+| Customer blocked | System won't unlock without photo |
+| Delivery fails | Despite correct OTP entry |
+
+| Solution | Implementation |
+|----------|----------------|
+| OTP-only fallback | After 3 failed camera attempts, proceed OTP-only |
+| Metadata logging | Log "photo_failed" with reason for audit |
+| Flash LED | Trigger LED flash to aid camera in low light |
+| Grace unlock | Flag delivery for manual review but allow unlock |
+
+**Photo Attempt Flow:**
+1. Customer enters OTP → Valid
+2. Camera attempt 1 → Failed (low light)
+3. Camera attempt 2 with LED flash → Failed (masked)
+4. Camera attempt 3 → Failed
+5. **Fallback:** Unlock proceeds, delivery flagged for review
+6. Metadata saved: camera_failed, reason, ambient_light_level
+
+**Firebase Flagging:**
+```
+/deliveries/{delivery_id}/photo_fallback
+├── photo_required: true
+├── photo_captured: false
+├── fallback_used: true
+├── attempts: 3
+├── failure_reasons: ["LOW_LIGHT", "NO_FACE_DETECTED", "NO_FACE_DETECTED"]
+├── flagged_for_review: true
+└── reviewed: false
+```
+
+**Note:** This aligns with Constitution 1.2 - photo capture is attempted before unlock, but delivery proceeds if camera fails to avoid blocking legitimate customers.
+
+**Status:** ⬜ TODO
+
+---
+
+## 📱 Input & UI Edge Cases
+
+### EC-98: Panic Mash (Rapid Confirm Taps)
+**Scenario:** User taps "Confirm" button 20 times rapidly in frustration or anxiety.
+
+| Symptom | Implementation |
+|---------|----------------|
+| Buffer overflow | State machine receives multiple events |
+| Accidental menu navigation | Extra taps trigger next screen actions |
+| Duplicate submissions | Same action sent multiple times |
+
+| Solution | Implementation |
+|----------|----------------|
+| Input buffer clear | Clear input buffer on every state change |
+| Debounce confirms | Ignore button presses within 500ms of state change |
+| One-shot actions | Disable button until action completes |
+| Visual feedback | Show loading indicator during processing |
+
+**Input Handling:**
+```typescript
+// Mobile app button handler
+const handleConfirm = debounce(async () => {
+  setLoading(true);
+  setButtonDisabled(true);
+  clearInputBuffer();
+  
+  try {
+    await submitAction();
+  } finally {
+    setLoading(false);
+    // Button re-enables after state change complete
+  }
+}, 500, { leading: true, trailing: false });
+```
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-99: Double-Tap Race Condition (Unlock + Cancel Simultaneous)
+**Scenario:** Database receives "Unlock" command and "Cancel" command at the exact same millisecond from different sources.
+
+| Symptom | Implementation |
+|---------|----------------|
+| Box unlocks after cancellation | Both commands processed |
+| Package given to wrong person | Delivery was cancelled but box opened |
+| Inconsistent state | Local state differs from server state |
+
+| Solution | Implementation |
+|----------|----------------|
+| Cloud Function transaction | Use Firebase atomic transactions |
+| Strict ordering | Cancel always takes precedence over unlock |
+| Timestamp verification | Only accept unlock if issued AFTER last cancel |
+| Optimistic lock version | Include version number in state updates |
+
+**Transaction Logic (Cloud Function):**
+```javascript
+// Atomic delivery state update
+admin.database().ref(`deliveries/${deliveryId}`).transaction((delivery) => {
+  if (!delivery) return null;
+  
+  // Cancel ALWAYS wins over unlock
+  if (delivery.cancelled) {
+    return delivery;  // No change
+  }
+  
+  // Check for race condition
+  if (payload.type === 'UNLOCK' && delivery.cancel_requested_at) {
+    // Unlock came after cancel was requested
+    return delivery;  // Reject unlock
+  }
+  
+  // Apply update with version check
+  if (delivery.version !== payload.expected_version) {
+    throw new Error('VERSION_CONFLICT');
+  }
+  
+  return { ...delivery, ...payload.changes, version: delivery.version + 1 };
+});
+```
+
+**Priority Order:**
+1. CANCEL (highest precedence)
+2. ADMIN_OVERRIDE
+3. UNLOCK (customer OTP)
+4. STATUS_UPDATE (lowest)
+
+**Status:** ⬜ TODO
+
+---
 ## Summary: Priority Matrix (Final)
 
 | Priority | Count | Edge Cases |
 |----------|-------|------------|
-| 🔴 P0 (Critical) | 7 | EC-01, EC-06, EC-18, EC-31, EC-77, EC-80, EC-81 |
-| 🟡 P1 (High) | 20 | EC-02, EC-03, EC-04, EC-07, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, EC-78, ~~EC-82~~✅, ~~EC-83~~✅, EC-84, EC-85, ~~EC-86~~✅ |
-| 🟢 P2 (Medium) | 22 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, EC-29, EC-32, EC-35, EC-42, EC-46, ~~EC-47~~✅, EC-49, EC-54, ~~EC-55~~✅, ~~EC-56~~✅, EC-57, EC-62, ~~EC-68~~✅, EC-69, EC-72, EC-75, EC-79, EC-87, EC-88 |
-| 🔵 P3 (Low) | 38+ | All others |
-
-**Completed:** EC-21, EC-22, EC-23, EC-25, EC-47, EC-48, EC-55, EC-56, EC-68, EC-82, EC-83
+| 🔴 P0 (Critical) | 8 | ~~EC-01~~✅, ~~EC-06~~✅, ~~EC-18~~✅, ~~EC-31~~✅, ~~EC-77~~✅, EC-80, ~~EC-81~~✅, EC-99 |
+| 🟡 P1 (High) | 25 | ~~EC-02~~✅, ~~EC-03~~✅, ~~EC-04~~✅, ~~EC-07~~✅, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, ~~EC-78~~✅, ~~EC-82~~✅, ~~EC-83~~✅, ~~EC-84~~✅, ~~EC-85~~✅, ~~EC-86~~✅, EC-89, EC-90, EC-91, EC-96 |
+| 🟢 P2 (Medium) | 27 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, ~~EC-29~~✅, ~~EC-32~~✅, ~~EC-35~~✅, EC-42, ~~EC-46~~✅, ~~EC-47~~✅, ~~EC-49~~✅, EC-54, ~~EC-55~~✅, ~~EC-56~~✅, EC-57, EC-62, ~~EC-66~~✅, ~~EC-68~~✅, EC-69, EC-72, EC-75, ~~EC-79~~✅, EC-87, EC-88, EC-92, EC-93, EC-94, EC-97 |
+| 🔵 P3 (Low) | 39+ | ~~EC-05~~✅, EC-09, ~~EC-10~~✅, ~~EC-11~~✅, ~~EC-12~~✅, EC-13, ~~EC-14~~✅, ~~EC-15~~✅, ~~EC-17~~✅, ~~EC-20~~✅, ~~EC-24~~✅, EC-26-28, EC-30, EC-33-34, ~~EC-36~~✅, EC-37-38, EC-40, EC-43-44, EC-50-53, EC-57-58, ~~EC-60~~✅, EC-63-65, EC-69-76, EC-95, EC-98 |
 
 ---
 
-## ✅ Already Handled
+## 🆕 Newly Added Edge Cases (EC-89 to EC-99)
+
+| EC# | Name | Category | Priority |
+|-----|------|----------|----------|
+| EC-89 | Zombie Token (Auth Expiry) | 🔐 Auth/Session | P1 |
+| EC-90 | Brownout Actuation | 🔧 Hardware | P1 |
+| EC-91 | Priority Interrupt Crash | 🔧 Hardware | P1 |
+| EC-92 | Urban Canyon Flicker | 📍 Geofence | P2 |
+| EC-93 | Zombie Delivery (Warehouse Return) | 📍 Geofence | P2 |
+| EC-94 | Boundary Hopper (GPS Jitter) | 📍 Geofence | P2 |
+| EC-95 | Sticky Reed Switch (Vibration) | 🔧 Hardware | P3 |
+| EC-96 | Solenoid Heat Fade | 🔧 Hardware | P1 |
+| EC-97 | Face Not Found Timeout | 🔧 Hardware | P2 |
+| EC-98 | Panic Mash (Rapid Taps) | 📱 UI/Input | P3 |
+| EC-99 | Double-Tap Race Condition | ⚡ Concurrency | P0 |
+
+---
+
+## ✅ Already Handled (43 Edge Cases)
 
 | Edge Case | How |
 |-----------|-----|
 | EC-01 (No Signal) | Offline OTP + photo queue |
 | EC-02 (Missed Assignment) | BLE OTP transfer from phone to box |
+| EC-03 (Battery Dies) | Prevention(battery UI), Recovery(Firebase sync), Fallback(admin override) |
 | EC-04 (Wrong OTP 5x) | 5min lockout, photo capture, admin reset |
+| EC-05 (Rider Phone Dies) | OTP in tracking link - customer can access from any device |
 | EC-06 (Both Offline) | Full offline-first design |
 | EC-07 (Stale OTP) | 4-hour expiry + revocation on cancellation |
 | EC-10 (Queue Full) | MAX_QUEUED_PHOTOS limit |
@@ -1820,25 +2260,37 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | EC-15 (App Killed) | Foreground service (Android) + background location (iOS) + box GPS failover |
 | EC-17 (MITM) | Firebase TLS |
 | EC-18 (Tamper) | Reed switch + photo + lockdown |
+| EC-20 (Delivery ID Collision) | OTP collision prevention + hash verification |
 | EC-21 (Solenoid Closed) | 3x retry + feedback sensor + alerts + physical key fallback |
 | EC-22 (Solenoid Open) | Feedback sensor + out-of-service marking + blocks deliveries |
 | EC-23 (Camera Fail) | 3x retry + metadata fallback + flagged for review |
 | EC-24 (GPS Fail) | Phone GPS redundancy |
-| EC-25 (Brownout) | SPIFFS state persistence + auto-resume + reboot event |
+| EC-25 (Brownout/Reboot) | SPIFFS state persistence + auto-resume + reboot event |
+| EC-29 (OTP Shared) | Instant OTP regeneration + 10min cooldown + max 5 regenerations |
 | EC-31 (Disputed) | Photo + GPS + OTP log |
+| EC-32 (Rider Cancels) | Return OTP generation + sender notification |
+| EC-35 (Status Update Lost) | Retry queue + exponential backoff + manual fallback |
+| EC-36 (Multiple Riders) | Device binding + force logout on new login |
 | EC-46 (Clock Skew) | Firebase server time |
 | EC-47 (Duplicate Records) | Idempotency key + upsert logic + duplicate detection |
 | EC-48 (SPIFFS Corruption) | CRC32 checksum + RTC backup + Firebase recovery |
+| EC-49 (Out-of-Order Events) | State machine + valid transition validation |
 | EC-55 (Firebase Quota) | 80%/95% alerts + local caching + fetch interval reduction |
 | EC-56 (Photo Bandwidth) | 800px/60% compression + priority queue + resumable uploads |
 | EC-60 (DST) | UTC everywhere |
+| EC-66 (Customer 2 Riders) | Multi-delivery view + separate OTPs + grouped notifications |
 | EC-68 (Res/Bus Address) | Address type field + dynamic geofence (50m/100m) + building details |
+| EC-77 (Admin Override) | Real-time lock status + keypad buffer clear + remote unlock |
+| EC-78 (Delivery Reassignment) | Push notification + route update + 30s auto-ack |
+| EC-79 (Photo+Cancel Race) | Complete upload + metadata flag + photo retention |
+| EC-81 (Box Stolen) | Theft detection + geofence breach + lockdown + photo burst |
 | EC-82 (Keypad Stuck) | 10s press detection + Firebase status + Critical alerts |
 | EC-83 (Hinge Damage) | Sensor mismatch logic + DAMAGED status + Operation lockout |
 | EC-84 (GPS Obstruction) | HDOP monitoring + alert banner + auto-failover to phone GPS |
 | EC-85 (Package Recall) | Recall command receiver + Status update + Return OTP generation |
+| EC-86 (I2C Display Fail) | LED fallback + buzzer feedback + BLE unlock + maintenance flag |
 
 ---
 
-**Total Edge Cases Documented: 88**
-**Total Edge Cases Implemented: 39**
+**Total Edge Cases Documented: 99**
+**Total Edge Cases Implemented: 43**
