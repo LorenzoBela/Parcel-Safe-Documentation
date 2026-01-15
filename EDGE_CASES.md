@@ -266,6 +266,8 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | P1 | EC-04 (Wrong OTP) | Medium | Security breach |
 | P1 | EC-07 (Stale OTP) | Low | Wrong person opens |
 | P1 | EC-03 (Battery Dies) | Medium | Stuck delivery |
+| P1 | EC-82 (Keypad Stuck) | High | Critical Alert |
+| P1 | EC-83 (Hinge Damage) | High | Out of Service |
 | P2 | EC-02 (Missed Assignment) | High (BLE) | Rare scenario |
 | P2 | EC-08 (GPS Spoof) | High | Fraud |
 | P3 | Others | Varies | Inconvenience |
@@ -498,6 +500,31 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
   - Boot count tracking for maintenance insights
   - `shouldResumeDelivery()` helper for UI decisions
   - Audit trail with restored_state details
+
+---
+
+### Remaining Edge Cases (EC-26 to EC-88)
+
+| Range | Category | Count | Status |
+|-------|----------|-------|--------|
+| EC-26 to EC-28 | 🌡️ Environmental (Heat, Rain, Vibration) | 3 | ⬜ TODO |
+| EC-29 to EC-32 | 👥 Multi-Party (OTP shared, wrong person) | 4 | 🟡 Partial (EC-29 ✅, EC-32 ✅) |
+| EC-33 to EC-36 | ⚡ Race Conditions | 4 | 🟡 Partial (EC-35 ✅, EC-36 ✅) |
+| EC-37 to EC-38 | 📱 Mobile Specific (Multi-login, update) | 2 | ⬜ TODO |
+| EC-39 to EC-41 | 💰 Financial (Payment, COD) | 3 | ⬜ TODO |
+| EC-42 to EC-45 | ⚖️ Legal (GDPR, PII, Insurance) | 4 | 🔶 Partial |
+| EC-46 to EC-49 | 📊 Data Integrity (Duplicates, corruption) | 4 | ✅ Done |
+| EC-50 to EC-53 | 🎨 UX (Panic, Language, Accessibility) | 4 | ⬜ TODO |
+| EC-54 to EC-56 | 📈 Scalability (1000 concurrent, quota) | 3 | 🔶 Partial (EC-55, EC-56 ✅) |
+| EC-57 to EC-60 | 🔄 Lifecycle (OTA, Decommission, DST) | 4 | 🔶 Partial |
+| EC-61 to EC-64 | 🌐 Network (WiFi switch, captive portal) | 4 | ⬜ TODO |
+| EC-65 to EC-68 | 👥 Multi-Entity (Two riders, handover) | 4 | 🔶 Partial (EC-66 ✅, EC-68 ✅) |
+| EC-69 to EC-72 | 🔧 Hardware Lifecycle (Calibration, wear) | 4 | ⬜ TODO |
+| EC-73 to EC-76 | 📅 Time-Based (Leap year, holidays) | 4 | ⬜ TODO |
+| EC-77 to EC-80 | ⚡ Concurrency (Override, reassignment) | 4 | 🟡 Partial (EC-77, EC-78, EC-79 ✅) |
+| EC-81 | 🔒 **Top Box Stolen** (NEW) | 1 | ⬜ TODO |
+| EC-82 to EC-85 | 🛠️ **Hardware Degradation** (Keypad, Hinge, GPS, Recall) (NEW) | 4 | 🟡 Partial (EC-82 ✅, EC-83 ✅) |
+| EC-86 to EC-88 | 🖥️ **I2C Display** (Failure, Sunlight, Burn-in) (NEW) | 3 | ⬜ TODO |
 
 ---
 
