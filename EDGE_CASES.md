@@ -528,58 +528,7 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 
 ---
 
-### EC-82: Keypad Malfunction (Stuck Key)
-**Scenario:** A key on the 4x4 keypad is mechanically stuck or shorted.
 
-| Detection | Implementation |
-|-----------|----------------|
-| Logic | Check if key pressed > 10 seconds |
-| Verification | Hardware interrupt / polling loop |
-| Safety | Disable keypad input if stuck to prevent ghost presses |
-
-| Solution | Implementation |
-|----------|----------------|
-| Alert | "Key stuck" warning to Firebase |
-| UI Banner | Rider sees "Keypad Malfunction" |
-| Fallback | Mobile App Unlock (ignore keypad) |
-
-**Status:** ✅ Done - Full implementation
-- ESP32 firmware: `LockControl.h` (or main loop) - Stuck key detection logic
-- Firebase reporting: `hardware/{boxId}/keypad` with `is_stuck`, `stuck_key`
-- Web/Mobile: Alerts and persistent warning banners
-- Tests: `hardwareFailures.test.ts` (web/mobile), `test_edge_cases.h` (hardware)
-- Features:
-  - 10-second threshold for stuck detection
-  - Auto-reset when key released
-  - Critical severity alert
-
----
-
-### EC-83: Box Hinge Damage Detection
-**Scenario:** Box hinge is damaged or compromised (e.g., forced open attempt).
-
-| Detection | Implementation |
-|-----------|----------------|
-| Sensor Mismatch | Door sensor says OPEN but Lock is LOCKED |
-| Flapping | Sensor toggles rapidly (flapping in wind) |
-
-| Solution | Implementation |
-|----------|----------------|
-| Immediate Lockout | Mark box OUT_OF_SERVICE |
-| Alert | Critical "Physical Damage" alert |
-| Evidence | Timestamp validation |
-
-**Status:** ✅ Done - Full implementation
-- ESP32 firmware: Hinge sensing logic
-- Firebase reporting: `hardware/{boxId}/hinge` with `status` (DAMAGED/FLAPPING)
-- Web/Mobile: Critical alerts and delivery blocking
-- Tests: `hardwareFailures.test.ts` (web/mobile), `test_edge_cases.h` (hardware)
-- Features:
-  - DAMAGED state blocks all operations
-  - FLAPPING state warns but allows operation
-  - Persistent Firebase status
-
----
 
 ## 🌡️ Environmental Factors
 
@@ -1535,83 +1484,56 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 
 ---
 
-### EC-82: Keypad Button Physically Stuck
-**Scenario:** Frequently used keypad buttons (e.g., 1, 2, 3) become unresponsive due to wear or debris.
+### EC-82: Keypad Malfunction (Stuck Key)
+**Scenario:** A key on the 4x4 keypad is mechanically stuck or shorted.
 
 | Detection | Implementation |
 |-----------|----------------|
-| Key health check | Self-diagnostic routine tests all keys on boot |
-| Repeat detection | Same key registering continuously = stuck |
-| User feedback | Customer reports "can't enter OTP" via tracking page |
+| Logic | Check if key pressed > 10 seconds |
+| Verification | Hardware interrupt / polling loop |
+| Safety | Disable keypad input if stuck to prevent ghost presses |
 
 | Solution | Implementation |
 |----------|----------------|
-| Alternative input | BLE OTP transfer from phone bypasses keypad |
-| Partial keypad mode | If 2+ keys working, suggest different OTP (regenerate) |
-| Maintenance flag | Mark box for service, notify admin |
-| Visual feedback | I2C display shows asterisks as digits entered |
+| Alert | "Key stuck" warning to Firebase |
+| UI Banner | Rider sees "Keypad Malfunction" |
+| Fallback | Mobile App Unlock (ignore keypad) |
 
-**Rider/Admin Actions:**
-| Role | Action |
-|------|--------|
-| Rider | Receives "Keypad Issue" alert → can complete delivery via BLE |
-| Admin | Sees box flagged in fleet health dashboard → schedules repair |
-| Customer | Shown "Use phone to unlock" option if keypad unavailable |
-
-**Firebase Data Structure:**
-```
-/boxes/{mac_address}/keypad_health
-├── last_diagnostic: timestamp
-├── faulty_keys: [1, 3, 7]  // Array of non-functional keys
-├── stuck_key: 5  // Currently stuck key (if any)
-├── total_keypresses: 145230  // Lifetime counter
-└── needs_service: boolean
-```
-
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Full implementation
+- ESP32 firmware: `LockControl.h` (or main loop) - Stuck key detection logic
+- Firebase reporting: `hardware/{boxId}/keypad` with `is_stuck`, `stuck_key`
+- Web/Mobile: Alerts and persistent warning banners
+- Tests: `hardwareFailures.test.ts` (web/mobile), `test_edge_cases.h` (hardware)
+- Features:
+  - 10-second threshold for stuck detection
+  - Auto-reset when key released
+  - Critical severity alert
 
 ---
 
-### EC-83: Box Hinge Broken (Won't Close Properly)
-**Scenario:** Physical damage to hinge mechanism - door doesn't seal, security compromised.
+### EC-83: Box Hinge Damage Detection
+**Scenario:** Box hinge is damaged or compromised (e.g., forced open attempt).
 
 | Detection | Implementation |
 |-----------|----------------|
-| Reed switch | Door appears "open" even when pushed closed |
-| Rider report | "Box won't close" option in app |
-| Repeated open/close | Hinge bouncing detected via door sensor |
+| Sensor Mismatch | Door sensor says OPEN but Lock is LOCKED |
+| Flapping | Sensor toggles rapidly (flapping in wind) |
 
 | Solution | Implementation |
 |----------|----------------|
-| Immediate lockout | Disable new delivery assignments |
-| Package protection | Alert rider to secure existing package manually |
-| Out-of-service flag | Box marked unavailable in fleet system |
-| Evidence capture | Photo of damage for maintenance ticket |
+| Immediate Lockout | Mark box OUT_OF_SERVICE |
+| Alert | Critical "Physical Damage" alert |
+| Evidence | Timestamp validation |
 
-| Severity | Response |
-|----------|----------|
-| Partial (closes but loose) | Warning + allow current delivery to complete |
-| Complete (won't latch) | Immediate block + reassign pending deliveries |
-
-**Firebase Data Structure:**
-```
-/boxes/{mac_address}/structural_health
-├── hinge_status: "NORMAL" | "LOOSE" | "BROKEN"
-├── door_seal_intact: boolean
-├── last_inspection: timestamp
-├── damage_photos: [storage_path, ...]
-├── reported_by: uid
-└── maintenance_ticket_id: string
-```
-
-**Rider App Flow:**
-1. Rider notices door issue → taps "Report Hardware Problem"
-2. Selects "Hinge/Door Issue" from list
-3. Takes photo of damage
-4. System auto-flags box, notifies dispatch
-5. Rider reassigned to different box (if available)
-
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Full implementation
+- ESP32 firmware: Hinge sensing logic
+- Firebase reporting: `hardware/{boxId}/hinge` with `status` (DAMAGED/FLAPPING)
+- Web/Mobile: Critical alerts and delivery blocking
+- Tests: `hardwareFailures.test.ts` (web/mobile), `test_edge_cases.h` (hardware)
+- Features:
+  - DAMAGED state blocks all operations
+  - FLAPPING state warns but allows operation
+  - Persistent Firebase status
 
 ---
 
