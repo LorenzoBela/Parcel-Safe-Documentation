@@ -5,7 +5,7 @@
 > **Last Updated:** January 2026  
 > **Version:** 2.1 (Complete Edition)  
 > **Total Documented Cases:** 547 (Use Cases: 114 | Edge Cases: 88 | Boundary: 116 | Negative: 120 | State: 109)  
-> **Test Coverage:** ~87% (1540+ tests passing)
+> **Test Coverage:** ~87% (1542+ tests passing)
 
 ---
 
@@ -209,6 +209,8 @@ OVERALL:        ████████████████░░░░░�
 | EC-29 | Customer Shares OTP (Instant Regen) | Hardware, Mobile, Web | ✅ Done |
 | EC-82 | Keypad Stuck Key | Hardware, Mobile, Web | ✅ Done |
 | EC-83 | Box Hinge Damage | Hardware, Mobile, Web | ✅ Done |
+| EC-84 | GPS Antenna Obstruction | Hardware, Mobile, Web | ✅ Done |
+| EC-85 | Package Recall Mid-Transit | Mobile, Web | ✅ Done |
 
 ### Priority Matrix
 
@@ -427,9 +429,9 @@ OVERALL:        ████████████████░░░░░�
 | 📅 Time-Based | EC-73 to EC-76 | 4 | 0 (0%) |
 | ⚡ Concurrency | EC-77 to EC-80 | 4 | 3 (75%) |
 | 🔒 Asset Protection | EC-81 | 1 | 0 (0%) |
-| 🛠️ Hardware Degradation | EC-82 to EC-85 | 4 | 2 (50%) |
+| 🛠️ Hardware Degradation | EC-82 to EC-85 | 4 | 4 (100%) |
 | 🖥️ I2C Display | EC-86 to EC-88 | 3 | 0 (0%) |
-| **Total** | | **88** | **37 (42%)** |
+| **Total** | | **88** | **39 (44%)** |
 
 ---
 

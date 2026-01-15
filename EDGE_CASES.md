@@ -302,8 +302,8 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 - [x] Rider theft report flow (EC-81) ✅ Unit tests pass
 - [x] Keypad stuck key detection (EC-82) ✅ Unit tests pass
 - [x] Box hinge damage detection (EC-83) ✅ Unit tests pass
-- [ ] GPS antenna obstruction fallback (EC-84)
-- [ ] Sender package recall flow (EC-85)
+- [x] GPS antenna obstruction fallback (EC-84) ✅ Unit tests pass
+- [x] Sender package recall flow (EC-85) ✅ Unit tests pass
 - [ ] I2C display failure fallback (EC-86)
 - [ ] Display sunlight visibility modes (EC-87)
 - [ ] Display burn-in prevention (EC-88)
@@ -523,11 +523,10 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | EC-73 to EC-76 | 📅 Time-Based (Leap year, holidays) | 4 | ⬜ TODO |
 | EC-77 to EC-80 | ⚡ Concurrency (Override, reassignment) | 4 | 🟡 Partial (EC-77, EC-78, EC-79 ✅) |
 | EC-81 | 🔒 **Top Box Stolen** (NEW) | 1 | ⬜ TODO |
-| EC-82 to EC-85 | 🛠️ **Hardware Degradation** (Keypad, Hinge, GPS, Recall) (NEW) | 4 | 🟡 Partial (EC-82 ✅, EC-83 ✅) |
+| EC-82 to EC-85 | 🛠️ **Hardware Degradation** (Keypad, Hinge, GPS, Recall) (NEW) | 4 | ✅ Done |
 | EC-86 to EC-88 | 🖥️ **I2C Display** (Failure, Sunlight, Burn-in) (NEW) | 3 | ⬜ TODO |
 
 ---
-
 
 
 ## 🌡️ Environmental Factors
@@ -1576,7 +1575,14 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 - 🟡 Degraded GPS: Using phone as backup
 - 🔴 No GPS: Last known position shown with warning
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Full implementation
+- Mobile: `locationRedundancy.ts` listens to `gps_health`.
+- Web: `TrackingClient.tsx` displays "Signal Obstructed" warning.
+- Hardware: Monitors HDOP and publishes health status.
+- Features:
+  - HDOP threshold monitoring.
+  - Visual warning for rider and customer.
+  - Seamless failover integration.
 
 ---
 
@@ -1629,7 +1635,11 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Rider offline | Recall queued, processed when reconnected |
 | Sender unreachable for return | Hold at hub, notify sender |
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Full implementation
+- Mobile: `RecallService.ts` listens for recall status.
+- Web: `TrackingClient.tsx` handles `RECALLED` status.
+- UI: "PACKAGE RECALLED" banner with return OTP.
+- Protocol: Delivery status changes to `RECALLED` -> `RETURNED` upon completion.
 
 ---
 
@@ -1805,6 +1815,10 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | EC-68 (Res/Bus Address) | Address type field + dynamic geofence (50m/100m) + building details |
 | EC-82 (Keypad Stuck) | 10s press detection + Firebase status + Critical alerts |
 | EC-83 (Hinge Damage) | Sensor mismatch logic + DAMAGED status + Operation lockout |
+| EC-84 (GPS Obstruction) | HDOP monitoring + alert banner + auto-failover to phone GPS |
+| EC-85 (Package Recall) | Recall command receiver + Status update + Return OTP generation |
+
+---
 
 **Total Edge Cases Documented: 88**
-**Total Edge Cases Implemented: 37**
+**Total Edge Cases Implemented: 39**
