@@ -342,6 +342,54 @@ $env:PATH = "$PWD\tools\w64devkit\bin;$env:PATH"
 
 ---
 
+## Edge Case Testing
+
+### EC-86: I2C Display Failure (✅ DONE)
+
+**Test Coverage:** 9 hardware tests + 6 mobile service tests + 4 integration flows
+
+**Hardware Tests** (`hardware/test/test_edge_cases.h`):
+- `test_ec86_display_init_success` - Verify successful I2C initialization
+- `test_ec86_display_init_failure` - Handle I2C init failure gracefully
+- `test_ec86_i2c_timeout_detection` - Detect I2C communication timeout
+- `test_ec86_degraded_after_errors` - Transition to DEGRADED after 2 errors
+- `test_ec86_failed_after_threshold` - Transition to FAILED after 3 errors
+- `test_ec86_fallback_mode_active` - LED/buzzer fallback when display fails
+- `test_ec86_health_data_structure` - Verify Firebase health data format
+- `test_ec86_render_watchdog` - Detect render timeout (5s watchdog)
+- `test_ec86_status_recovery` - Test recovery from DEGRADED → OK
+
+**Mobile Service Tests** (`mobile/src/services/__tests__/hardwareStatusService.display.test.ts`):
+- Display health: FAILED → CRITICAL, DEGRADED → WARNING, OK → HEALTHY
+- Alert generation: FAILED creates CRITICAL alert, DEGRADED creates WARNING alert
+- Delivery safety: Block delivery when FAILED, allow when DEGRADED (fallback active)
+- Error count tracking: Verify error count increments correctly
+
+**Integration Flows:**
+1. **Web Admin**: HardwareStatusPanel displays real-time display health, error count, maintenance flag
+2. **Web Customer**: HardwareAlertBanner shows gentle alerts for display failures
+3. **Mobile Rider**: HardwareStatusScreen shows display component card with status/errors
+4. **Mobile Customer**: CustomerHardwareBanner (gentle blue info) + CustomerBleUnlockModal for BLE unlock
+
+**Firebase Schema:**
+```
+/boxes/{boxId}/display_health
+├── status: "OK" | "DEGRADED" | "FAILED"
+├── error_count: number
+├── needs_service: boolean
+└── last_update: timestamp
+```
+
+**Implementation Files:**
+- Hardware: `hardware/lib/DisplayControl/DisplayControl.{h,cpp}`
+- Firmware: `hardware/src/main.cpp`
+- Web: `web/src/lib/firebaseClient.ts`, `web/src/components/HardwareAlertBanner.tsx`, `HardwareStatusPanel.tsx`
+- Mobile: `mobile/src/services/{hardwareStatusService,firebaseClient}.ts`, `mobile/src/hooks/useHardwareStatus.ts`
+- Mobile UI: `mobile/src/screens/rider/HardwareStatusScreen.tsx`, `mobile/src/screens/client/{CustomerDashboard,TrackOrderScreen}.tsx`, `mobile/src/screens/auth/OTPScreen.tsx`
+- Customer Components: `mobile/src/components/{CustomerHardwareBanner,CustomerBleUnlockModal}.tsx`
+
+---
+
 ## Test File Locations
 
 ### Web (`web/src/lib/__tests__/`)

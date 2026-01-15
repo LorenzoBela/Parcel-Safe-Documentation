@@ -304,7 +304,7 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 - [x] Box hinge damage detection (EC-83) ✅ Unit tests pass
 - [x] GPS antenna obstruction fallback (EC-84) ✅ Unit tests pass
 - [x] Sender package recall flow (EC-85) ✅ Unit tests pass
-- [ ] I2C display failure fallback (EC-86)
+- [x] I2C display failure fallback (~~EC-86~~✅)
 - [ ] Display sunlight visibility modes (EC-87)
 - [ ] Display burn-in prevention (EC-88)
 
@@ -524,7 +524,7 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | EC-77 to EC-80 | ⚡ Concurrency (Override, reassignment) | 4 | 🟡 Partial (EC-77, EC-78, EC-79 ✅) |
 | EC-81 | 🔒 **Top Box Stolen** (NEW) | 1 | ⬜ TODO |
 | EC-82 to EC-85 | 🛠️ **Hardware Degradation** (Keypad, Hinge, GPS, Recall) (NEW) | 4 | ✅ Done |
-| EC-86 to EC-88 | 🖥️ **I2C Display** (Failure, Sunlight, Burn-in) (NEW) | 3 | ⬜ TODO |
+| EC-86 to EC-88 | 🖥️ **I2C Display** (Failure, Sunlight, Burn-in) (NEW) | 3 | ~~1~~✅ / 2 TODO |
 
 ---
 
@@ -1688,7 +1688,27 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 2. Display failed → LED flash per keypress + buzzer beep
 3. All visual failed → BLE unlock only (phone shows digits)
 
-**Status:** ⬜ TODO
+**Status:** ✅ **DONE**
+
+**Implementation Files:**
+- Hardware: `hardware/lib/DisplayControl/` (DisplayControl.h/cpp)
+- Firmware: `hardware/src/main.cpp` (integration, Firebase reporting)
+- Tests: `hardware/test/test_edge_cases.h` (9 test functions)
+- Web: `web/src/lib/firebaseClient.ts` (DisplayState, subscribeToDisplay)
+- Web UI: `web/src/components/HardwareAlertBanner.tsx`, `HardwareStatusPanel.tsx`
+- Mobile: `mobile/src/services/hardwareStatusService.ts`, `firebaseClient.ts`
+- Mobile UI: `mobile/src/screens/rider/HardwareStatusScreen.tsx`
+- Customer: `mobile/src/components/CustomerHardwareBanner.tsx`, `CustomerBleUnlockModal.tsx`
+- Tests: `mobile/src/services/__tests__/hardwareStatusService.display.test.ts`
+
+**Customer Communication Templates:**
+- Display FAILED: "The box's display is temporarily unavailable. Please use the Unlock button in your app to open the box. Tap here to learn more."
+- Display DEGRADED: "The box's display may be hard to read. Listen for buzzer feedback as you enter your code, or use the app to unlock."
+
+**Hardware BOM:**
+- Dev: SSD1306 OLED 128x64 I2C (current)
+- Production: Consider transflective LCD for sunlight visibility
+- Fallback: LED (GPIO 2), Buzzer (GPIO 26)
 
 ---
 
@@ -1776,7 +1796,7 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Priority | Count | Edge Cases |
 |----------|-------|------------|
 | 🔴 P0 (Critical) | 7 | EC-01, EC-06, EC-18, EC-31, EC-77, EC-80, EC-81 |
-| 🟡 P1 (High) | 21 | EC-02, EC-03, EC-04, EC-07, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, EC-78, ~~EC-82~~✅, ~~EC-83~~✅, EC-84, EC-85, EC-86 |
+| 🟡 P1 (High) | 20 | EC-02, EC-03, EC-04, EC-07, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, EC-78, ~~EC-82~~✅, ~~EC-83~~✅, EC-84, EC-85, ~~EC-86~~✅ |
 | 🟢 P2 (Medium) | 22 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, EC-29, EC-32, EC-35, EC-42, EC-46, ~~EC-47~~✅, EC-49, EC-54, ~~EC-55~~✅, ~~EC-56~~✅, EC-57, EC-62, ~~EC-68~~✅, EC-69, EC-72, EC-75, EC-79, EC-87, EC-88 |
 | 🔵 P3 (Low) | 38+ | All others |
 
