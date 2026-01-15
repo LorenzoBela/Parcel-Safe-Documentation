@@ -3,8 +3,8 @@
 **Comprehensive Master Documentation & Progress Tracker**
 
 > **Last Updated:** January 2026  
-> **Version:** 2.0 (Complete Edition)  
-> **Total Documented Cases:** 539 (Use Cases: 114 | Edge Cases: 80 | Boundary: 116 | Negative: 120 | State: 109)  
+> **Version:** 2.1 (Complete Edition)  
+> **Total Documented Cases:** 547 (Use Cases: 114 | Edge Cases: 88 | Boundary: 116 | Negative: 120 | State: 109)  
 > **Test Coverage:** ~87% (1540+ tests passing)
 
 ---
@@ -31,7 +31,7 @@
 | Document | Description | Total Cases | Status |
 |----------|-------------|-------------|--------|
 | [USE_CASES.md](./USE_CASES.md) | User scenarios (Customer, Rider, Admin, Box, Web, Mobile) | 114 | 📄 Reference |
-| [EDGE_CASES.md](./EDGE_CASES.md) | Failure scenarios, hardware issues, security | 80 | 📄 Reference |
+| [EDGE_CASES.md](./EDGE_CASES.md) | Failure scenarios, hardware issues, security | 88 | 📄 Reference |
 | [BOUNDARY_CASES.md](./BOUNDARY_CASES.md) | Input limits, thresholds, boundaries | 116 | 📄 Reference |
 | [NEGATIVE_CASES.md](./NEGATIVE_CASES.md) | Error handling, invalid inputs | 120 | 📄 Reference |
 | [STATE_CASES.md](./STATE_CASES.md) | State machine transitions | 109 | 📄 Reference |
@@ -48,7 +48,7 @@
 | 🌐 Web Portal Use Cases | 10 | 9 | 8 | 90% |
 | 📱 Mobile Use Cases | 10 | 9 | 8 | 90% |
 | 🔌 Integration Use Cases | 4 | 1 | 0 | 25% |
-| ⚡ Edge Cases | 80 | 34 | 30 | 43% |
+| ⚡ Edge Cases | 88 | 37 | 33 | 42% |
 | 📏 Boundary Cases | 116 | 95 | 85 | 82% |
 | ❌ Negative Cases | 120 | 90 | 80 | 75% |
 | 🔄 State Transitions | 109 | 70 | 65 | 64% |
@@ -116,7 +116,7 @@ Thesis 24-25 Smart Top Box/
 ├── 📁 docs/                           # Documentation
 │   ├── MASTER_DOCUMENTATION.md        # ← This file (Complete Reference)
 │   ├── USE_CASES.md                   # 114 use cases
-│   ├── EDGE_CASES.md                  # 80 edge cases  
+│   ├── EDGE_CASES.md                  # 88 edge cases  
 │   ├── BOUNDARY_CASES.md              # 116 boundary cases
 │   ├── NEGATIVE_CASES.md              # 120 negative cases
 │   ├── STATE_CASES.md                 # 109 state cases
@@ -179,12 +179,12 @@ Thesis 24-25 Smart Top Box/
 
 ```
 Use Cases:      ████████████████████░░░░ 82%  (94/114)
-Edge Cases:     ████████░░░░░░░░░░░░░░░░ 34%  (27/80)
+Edge Cases:     ██████████░░░░░░░░░░░░░░ 42%  (37/88)
 Boundary Tests: ████████████████████░░░░ 82%  (95/116)
 Negative Tests: ██████████████████░░░░░░ 75%  (90/120)
 State Tests:    ████████████████░░░░░░░░ 64%  (70/109)
 ────────────────────────────────────────────────
-OVERALL:        ████████████████░░░░░░░░ 70%  (376/539)
+OVERALL:        ████████████████░░░░░░░░ 70%  (386/547)
 ```
 
 ### Recent Completions (January 2026)
@@ -411,8 +411,8 @@ OVERALL:        ████████████████░░░░░�
 | 🟤 Hardware | EC-21 to EC-25 | 5 | 5 (100%) |
 | 🌡️ Environmental | EC-26 to EC-28 | 3 | 0 (0%) |
 | 👥 Multi-Party | EC-29 to EC-32 | 4 | 3 (75%) |
-| ⚡ Race Conditions | EC-33 to EC-35 | 3 | 0 (0%) |
-| 📱 Mobile Specific | EC-36 to EC-38 | 3 | 0 (0%) |
+| ⚡ Race Conditions | EC-33 to EC-36 | 4 | 2 (50%) |
+| 📱 Mobile Specific | EC-37 to EC-38 | 2 | 0 (0%) |
 | 💰 Financial | EC-39 to EC-41 | 3 | 0 (0%) |
 | ⚖️ Legal/Regulatory | EC-42 to EC-45 | 4 | 1 (25%) |
 | 📊 Data Integrity | EC-46 to EC-49 | 4 | 4 (100%) |
@@ -420,11 +420,14 @@ OVERALL:        ████████████████░░░░░�
 | 📈 Scalability | EC-54 to EC-56 | 3 | 2 (67%) |
 | 🔄 Lifecycle | EC-57 to EC-60 | 4 | 1 (25%) |
 | 🌐 Network | EC-61 to EC-64 | 4 | 0 (0%) |
-| 👥 Multi-Entity | EC-65 to EC-68 | 4 | 1 (25%) |
+| 👥 Multi-Entity | EC-65 to EC-68 | 4 | 2 (50%) |
 | 🔧 Hardware Lifecycle | EC-69 to EC-72 | 4 | 0 (0%) |
 | 📅 Time-Based | EC-73 to EC-76 | 4 | 0 (0%) |
 | ⚡ Concurrency | EC-77 to EC-80 | 4 | 3 (75%) |
-| **Total** | | **80** | **32 (40%)** |
+| 🔒 Asset Protection | EC-81 | 1 | 0 (0%) |
+| 🛠️ Hardware Degradation | EC-82 to EC-85 | 4 | 0 (0%) |
+| 🖥️ I2C Display | EC-86 to EC-88 | 3 | 0 (0%) |
+| **Total** | | **88** | **37 (42%)** |
 
 ---
 
@@ -506,14 +509,14 @@ OVERALL:        ████████████████░░░░░�
 
 ---
 
-### Remaining Edge Cases (EC-26 to EC-80)
+### Remaining Edge Cases (EC-26 to EC-88)
 
 | Range | Category | Count | Status |
 |-------|----------|-------|--------|
 | EC-26 to EC-28 | 🌡️ Environmental (Heat, Rain, Vibration) | 3 | ⬜ TODO |
 | EC-29 to EC-32 | 👥 Multi-Party (OTP shared, wrong person) | 4 | 🟡 Partial (EC-29 ✅, EC-32 ✅) |
-| EC-33 to EC-35 | ⚡ Race Conditions | 3 | ⬜ TODO |
-| EC-36 to EC-38 | 📱 Mobile Specific (Multi-login, update) | 3 | ⬜ TODO |
+| EC-33 to EC-36 | ⚡ Race Conditions | 4 | 🟡 Partial (EC-35 ✅, EC-36 ✅) |
+| EC-37 to EC-38 | 📱 Mobile Specific (Multi-login, update) | 2 | ⬜ TODO |
 | EC-39 to EC-41 | 💰 Financial (Payment, COD) | 3 | ⬜ TODO |
 | EC-42 to EC-45 | ⚖️ Legal (GDPR, PII, Insurance) | 4 | 🔶 Partial |
 | EC-46 to EC-49 | 📊 Data Integrity (Duplicates, corruption) | 4 | ✅ Done |
@@ -521,10 +524,13 @@ OVERALL:        ████████████████░░░░░�
 | EC-54 to EC-56 | 📈 Scalability (1000 concurrent, quota) | 3 | 🔶 Partial (EC-55, EC-56 ✅) |
 | EC-57 to EC-60 | 🔄 Lifecycle (OTA, Decommission, DST) | 4 | 🔶 Partial |
 | EC-61 to EC-64 | 🌐 Network (WiFi switch, captive portal) | 4 | ⬜ TODO |
-| EC-65 to EC-68 | 👥 Multi-Entity (Two riders, handover) | 4 | 🔶 Partial (EC-68 ✅) |
+| EC-65 to EC-68 | 👥 Multi-Entity (Two riders, handover) | 4 | 🔶 Partial (EC-66 ✅, EC-68 ✅) |
 | EC-69 to EC-72 | 🔧 Hardware Lifecycle (Calibration, wear) | 4 | ⬜ TODO |
 | EC-73 to EC-76 | 📅 Time-Based (Leap year, holidays) | 4 | ⬜ TODO |
 | EC-77 to EC-80 | ⚡ Concurrency (Override, reassignment) | 4 | 🟡 Partial (EC-77, EC-78, EC-79 ✅) |
+| **EC-81** | 🔒 **Top Box Stolen** (NEW) | 1 | ⬜ TODO |
+| EC-82 to EC-85 | 🛠️ **Hardware Degradation** (Keypad, Hinge, GPS, Recall) (NEW) | 4 | ⬜ TODO |
+| EC-86 to EC-88 | 🖥️ **I2C Display** (Failure, Sunlight, Burn-in) (NEW) | 3 | ⬜ TODO |
 
 ---
 

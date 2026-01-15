@@ -294,6 +294,17 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 - [ ] Firmware update during delivery (EC-80)
 - [ ] Year-end transition test (EC-74)
 - [ ] Battery degradation simulation (EC-72)
+- [x] Top box theft detection and tracking (EC-81) ✅ Unit tests pass
+- [x] Geofence breach alert for stolen box (EC-81) ✅ Unit tests pass
+- [x] Admin remote lockdown of stolen box (EC-81) ✅ Unit tests pass
+- [x] Rider theft report flow (EC-81) ✅ Unit tests pass
+- [ ] Keypad stuck key detection (EC-82)
+- [ ] Box hinge damage detection (EC-83)
+- [ ] GPS antenna obstruction fallback (EC-84)
+- [ ] Sender package recall flow (EC-85)
+- [ ] I2C display failure fallback (EC-86)
+- [ ] Display sunlight visibility modes (EC-87)
+- [ ] Display burn-in prevention (EC-88)
 
 ---
 
@@ -1372,13 +1383,389 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 
 ---
 
+## 🔒 Asset Protection & Theft
+
+### EC-81: Top Box Stolen
+**Scenario:** The physical top box is stolen (separated from motorcycle or taken with the vehicle).
+
+| Detection | Implementation |
+|-----------|----------------|
+| Motion without ignition | Box detects movement but rider app not active |
+| Geofence breach | Box leaves designated service area |
+| Prolonged disconnection | Box goes dark + rider reports theft |
+| Tamper + movement combo | Tamper alert followed by rapid location changes |
+
+| Solution | For Admin | For Rider |
+|----------|-----------|-----------|
+| **Real-time GPS tracking** | Admin dashboard with live location, heading, speed | Push notification with "Track My Box" button |
+| **Remote lockdown** | Full lockdown: disable all OTPs, solenoid locked | View-only lockdown status |
+| **Theft mode activation** | One-click "Mark as Stolen" in admin panel | "Report Theft" button in rider app triggers admin review |
+| **Geofence alerts** | Configure zones, alert when box leaves | Receive alert if box leaves rider's assigned area |
+| **Photo capture burst** | Trigger 5 photos remotely at 2-second intervals | View captured photos in app |
+| **Audio beacon** | Trigger internal buzzer remotely (if hardware supports) | N/A |
+| **Evidence package** | Export full GPS trail + photos + timestamps for police report | Download evidence PDF for insurance claim |
+| **Recovery mode** | After recovery, admin resets and re-binds to new rider | N/A (admin only) |
+
+**Firebase Data Structure:**
+```
+/boxes/{mac_address}/theft_status
+├── is_stolen: boolean
+├── reported_by: string (uid)
+├── reported_at: timestamp
+├── last_known_location: { lat, lng, heading, speed }
+├── location_history: [ { lat, lng, timestamp }, ... ]  // Last 24 hours
+├── lockdown_active: boolean
+├── lockdown_at: timestamp
+├── recovery_photos: [ storage_path, ... ]
+├── geofence_breach_at: timestamp
+└── notes: string (admin comments)
+```
+
+**Admin Dashboard Features:**
+1. **Stolen Box Map View** - Live tracking of all boxes marked stolen
+2. **Theft Timeline** - Chronological events (tamper, movement, geofence breach)
+3. **Remote Commands Panel** - Lockdown, buzzer, photo burst triggers
+4. **Evidence Export** - PDF/CSV with GPS trail for law enforcement
+5. **Recovery Checklist** - Steps to reactivate recovered box
+
+**Rider App Features:**
+1. **Report Theft Button** - Available when box is offline or tampered
+2. **Track My Box** - Live map with box location (if transmitting)
+3. **Evidence Access** - Download photos and GPS log for insurance
+4. **Status Updates** - Push notifications on theft investigation progress
+
+**Prevention Measures (Article 1.2 Constitution Compliance):**
+- Box takes photo on any unlock (helps identify thief if OTP brute-forced)
+- External GPS antenna (harder to shield vs internal antenna)
+- Consider cellular fallback (SIM card) for GPS when WiFi unavailable
+
+**Status:** ✅ Done - Full implementation
+- Hardware: `TheftDetection.h` - State machine with geofence, lockdown, photo burst
+- Mobile: `theftService.ts` - Theft reporting, tracking, evidence export
+- Web: `firebaseClient.ts` - EC-81 section with 18 functions
+- Tests: `test_ec81_*` in `test_edge_cases.h`, `EC81TheftDetection.test.ts`, `ec81TheftDetection.test.ts`
+- Features:
+  - Motion-without-ignition detection
+  - Haversine geofence breach detection (50km default radius)
+  - Remote admin lockdown (blocks all OTPs)
+  - Photo burst capture (5 photos @ 2s intervals)
+  - Location history tracking (24 hours)
+  - Evidence package export
+  - **No buzzer hardware** - alerts via push notification to rider/admin app
+
+---
+
+### EC-82: Keypad Button Physically Stuck
+**Scenario:** Frequently used keypad buttons (e.g., 1, 2, 3) become unresponsive due to wear or debris.
+
+| Detection | Implementation |
+|-----------|----------------|
+| Key health check | Self-diagnostic routine tests all keys on boot |
+| Repeat detection | Same key registering continuously = stuck |
+| User feedback | Customer reports "can't enter OTP" via tracking page |
+
+| Solution | Implementation |
+|----------|----------------|
+| Alternative input | BLE OTP transfer from phone bypasses keypad |
+| Partial keypad mode | If 2+ keys working, suggest different OTP (regenerate) |
+| Maintenance flag | Mark box for service, notify admin |
+| Visual feedback | I2C display shows asterisks as digits entered |
+
+**Rider/Admin Actions:**
+| Role | Action |
+|------|--------|
+| Rider | Receives "Keypad Issue" alert → can complete delivery via BLE |
+| Admin | Sees box flagged in fleet health dashboard → schedules repair |
+| Customer | Shown "Use phone to unlock" option if keypad unavailable |
+
+**Firebase Data Structure:**
+```
+/boxes/{mac_address}/keypad_health
+├── last_diagnostic: timestamp
+├── faulty_keys: [1, 3, 7]  // Array of non-functional keys
+├── stuck_key: 5  // Currently stuck key (if any)
+├── total_keypresses: 145230  // Lifetime counter
+└── needs_service: boolean
+```
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-83: Box Hinge Broken (Won't Close Properly)
+**Scenario:** Physical damage to hinge mechanism - door doesn't seal, security compromised.
+
+| Detection | Implementation |
+|-----------|----------------|
+| Reed switch | Door appears "open" even when pushed closed |
+| Rider report | "Box won't close" option in app |
+| Repeated open/close | Hinge bouncing detected via door sensor |
+
+| Solution | Implementation |
+|----------|----------------|
+| Immediate lockout | Disable new delivery assignments |
+| Package protection | Alert rider to secure existing package manually |
+| Out-of-service flag | Box marked unavailable in fleet system |
+| Evidence capture | Photo of damage for maintenance ticket |
+
+| Severity | Response |
+|----------|----------|
+| Partial (closes but loose) | Warning + allow current delivery to complete |
+| Complete (won't latch) | Immediate block + reassign pending deliveries |
+
+**Firebase Data Structure:**
+```
+/boxes/{mac_address}/structural_health
+├── hinge_status: "NORMAL" | "LOOSE" | "BROKEN"
+├── door_seal_intact: boolean
+├── last_inspection: timestamp
+├── damage_photos: [storage_path, ...]
+├── reported_by: uid
+└── maintenance_ticket_id: string
+```
+
+**Rider App Flow:**
+1. Rider notices door issue → taps "Report Hardware Problem"
+2. Selects "Hinge/Door Issue" from list
+3. Takes photo of damage
+4. System auto-flags box, notifies dispatch
+5. Rider reassigned to different box (if available)
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-84: GPS Antenna Obstructed by Package
+**Scenario:** Large or metallic package inside box blocks internal GPS antenna, causing location accuracy to drop significantly.
+
+| Detection | Implementation |
+|-----------|----------------|
+| Signal quality drop | GPS HDOP suddenly increases after package loaded |
+| Position freeze | Same coordinates for >2 min while motorcycle moving (via accelerometer) |
+| Phone vs box mismatch | Rider phone GPS shows movement, box GPS frozen |
+
+| Solution | Implementation |
+|----------|----------------|
+| Phone GPS fallback | Auto-switch to rider's phone as primary GPS source |
+| Signal quality indicator | Show GPS health in rider app |
+| External antenna | Hardware consideration: roof-mount antenna option |
+| Package guidance | Alert rider if GPS degrades after loading |
+
+| GPS Source Priority |
+|---------------------|
+| 1. Box GPS (if HDOP < 5) |
+| 2. Phone GPS (always available as backup) |
+| 3. Last known position + dead reckoning |
+
+**Firebase Data Structure:**
+```
+/boxes/{mac_address}/gps_health
+├── current_source: "BOX" | "PHONE" | "LAST_KNOWN"
+├── box_hdop: float  // Horizontal dilution of precision
+├── signal_strength: int  // dBm
+├── satellites_visible: int
+├── last_valid_fix: timestamp
+├── obstruction_detected: boolean
+└── obstruction_since: timestamp
+```
+
+**Rider App Display:**
+- 🟢 Strong GPS: Box antenna working normally
+- 🟡 Degraded GPS: Using phone as backup
+- 🔴 No GPS: Last known position shown with warning
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-85: Sender Recalls Package Mid-Transit
+**Scenario:** Sender wants to cancel and retrieve package after rider has already picked it up and it's in the box.
+
+| Trigger | Implementation |
+|---------|----------------|
+| Sender request | "Recall Package" button in sender app/portal |
+| Payment issue | Auto-recall if payment fails post-pickup |
+| Address invalid | Confirmed undeliverable after multiple attempts |
+
+| Solution | Implementation |
+|----------|----------------|
+| Recall OTP generation | New 6-digit code sent to sender |
+| Rider notification | Push alert: "Package recalled - return to sender" |
+| Original OTP revocation | Customer's OTP immediately invalidated |
+| Return deadline | 4-hour window to return, escalates after |
+
+**Recall Flow:**
+```
+1. Sender initiates recall via portal
+2. System generates RETURN_OTP (different format: "R-XXXXXX")
+3. Customer OTP revoked (tracking page shows "Recalled")
+4. Rider receives "Return Package" assignment
+5. Rider navigates to sender location
+6. Sender enters R-XXXXXX to retrieve package
+7. Box captures return photo, marks delivery RECALLED
+```
+
+**Firebase Data Structure:**
+```
+/deliveries/{delivery_id}/recall
+├── recalled: boolean
+├── recalled_at: timestamp
+├── recalled_by: uid (sender)
+├── reason: "SENDER_REQUEST" | "PAYMENT_FAILED" | "UNDELIVERABLE"
+├── return_otp: string (hashed)
+├── return_otp_expires: timestamp
+├── return_completed: boolean
+├── return_photo: storage_path
+└── refund_status: "PENDING" | "PROCESSED" | "DISPUTED"
+```
+
+**Edge Sub-Cases:**
+| Scenario | Handling |
+|----------|----------|
+| Rider already at dropoff | Complete delivery takes priority unless sender pays recall fee |
+| Multiple packages in box | Only recalled package returns, others continue |
+| Rider offline | Recall queued, processed when reconnected |
+| Sender unreachable for return | Hold at hub, notify sender |
+
+**Status:** ⬜ TODO
+
+---
+
+## 🖥️ I2C Display Edge Cases
+
+### EC-86: I2C Display Failure
+**Scenario:** The I2C display stops working - customer can't see OTP digits as they type.
+
+| Detection | Implementation |
+|-----------|----------------|
+| I2C health check | Ping display on boot, verify ACK response |
+| Render watchdog | No display update in 5 seconds = failure |
+| User feedback | Customer reports blank/frozen screen |
+
+| Solution | Implementation |
+|----------|----------------|
+| LED fallback | Flash LED for each keypress (visual feedback) |
+| Audio feedback | Buzzer beep per digit entered (if speaker available) |
+| BLE unlock | Customer uses phone app to unlock instead |
+| Maintenance flag | Box flagged for display replacement |
+
+**Display States:**
+| State | Behavior |
+|-------|----------|
+| NORMAL | Shows asterisks as digits entered: `* * * _ _ _` |
+| READY | Shows "ENTER OTP" prompt |
+| SUCCESS | Shows "✓ UNLOCKING" with animation |
+| ERROR | Shows "WRONG CODE" with remaining attempts |
+| LOCKED | Shows "LOCKED - TRY LATER" with countdown |
+| OFFLINE | Shows "OFFLINE MODE" indicator |
+
+**Firebase Data Structure:**
+```
+/boxes/{mac_address}/display_health
+├── status: "OK" | "DEGRADED" | "FAILED"
+├── last_i2c_ack: timestamp
+├── brightness: int (0-255)
+├── contrast: int (0-255)
+├── error_count: int
+├── last_error: string
+└── needs_service: boolean
+```
+
+**Fallback Priority:**
+1. Display working → Show digits as asterisks
+2. Display failed → LED flash per keypress + buzzer beep
+3. All visual failed → BLE unlock only (phone shows digits)
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-87: Display Not Visible in Direct Sunlight
+**Scenario:** Philippine noon sun makes LCD/OLED unreadable - customer can't see their input.
+
+| Detection | Implementation |
+|-----------|----------------|
+| Light sensor | Ambient light sensor detects >80,000 lux |
+| Time-based | Auto-boost during 10am-3pm hours |
+| User report | "Can't see screen" feedback option |
+
+| Solution | Implementation |
+|----------|----------------|
+| Max brightness | Auto-boost to 100% brightness in sunlight |
+| High contrast mode | Switch to white-on-black or inverse colors |
+| Larger font | Increase digit size for outdoor visibility |
+| Audio confirmation | Buzzer beeps digit count for blind verification |
+| Shade prompt | Display suggests "Move to shade" if light too high |
+
+**Display Modes:**
+| Mode | Trigger | Settings |
+|------|---------|----------|
+| INDOOR | <10,000 lux | Normal brightness (50%), regular font |
+| OUTDOOR | 10,000-50,000 lux | High brightness (80%), bold font |
+| EXTREME | >50,000 lux | Max brightness (100%), inverted colors, XL font |
+
+**Hardware Consideration:**
+- Prefer transflective LCD or high-nit OLED (>1000 nits)
+- Consider e-ink display for ultimate sunlight readability
+- Anti-glare coating on display cover
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-88: Display Burn-in / Pixel Degradation
+**Scenario:** Static "ENTER OTP" text causes OLED burn-in over months of use.
+
+| Prevention | Implementation |
+|------------|----------------|
+| Screen timeout | Display off after 30 seconds idle |
+| Pixel shift | Slight position shift every hour |
+| Screensaver | Moving animation when idle |
+| Balanced usage | Alternate between inverted/normal modes |
+
+| Detection | Implementation |
+|-----------|----------------|
+| Visual inspection | Admin checks during maintenance |
+| Burn-in test | Self-test displays solid colors, checks uniformity |
+| Usage tracking | Log display-on hours for maintenance schedule |
+
+| Solution | Implementation |
+|----------|----------------|
+| Replacement schedule | Replace OLED every 18 months (proactive) |
+| LCD alternative | Use LCD instead of OLED for longer lifespan |
+| Graceful degradation | If burn-in detected, flag for service but continue operation |
+
+**Firebase Data Structure:**
+```
+/boxes/{mac_address}/display_lifecycle
+├── type: "OLED_SSD1306" | "LCD_1602" | "LCD_2004"
+├── install_date: timestamp
+├── total_on_hours: float
+├── burn_in_score: int (0-100, higher = worse)
+├── last_uniformity_test: timestamp
+├── replacement_due: timestamp
+└── notes: string
+```
+
+**Recommended Display Types:**
+| Type | Sunlight | Burn-in | Cost | Recommendation |
+|------|----------|---------|------|----------------|
+| OLED SSD1306 | Good | High risk | Low | Development only |
+| LCD 1602/2004 | Poor | None | Very low | Budget option |
+| Transflective LCD | Excellent | None | Medium | **Best for outdoor** |
+| E-ink | Perfect | None | High | Premium option |
+
+**Status:** ⬜ TODO
+
+---
+
 ## Summary: Priority Matrix (Final)
 
 | Priority | Count | Edge Cases |
 |----------|-------|------------|
-| 🔴 P0 (Critical) | 6 | EC-01, EC-06, EC-18, EC-31, EC-77, EC-80 |
-| 🟡 P1 (High) | 16 | EC-02, EC-03, EC-04, EC-07, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, EC-78 |
-| 🟢 P2 (Medium) | 20 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, EC-29, EC-32, EC-35, EC-42, EC-46, ~~EC-47~~✅, EC-49, EC-54, ~~EC-55~~✅, ~~EC-56~~✅, EC-57, EC-62, ~~EC-68~~✅, EC-69, EC-72, EC-75, EC-79 |
+| 🔴 P0 (Critical) | 7 | EC-01, EC-06, EC-18, EC-31, EC-77, EC-80, EC-81 |
+| 🟡 P1 (High) | 21 | EC-02, EC-03, EC-04, EC-07, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, EC-78, EC-82, EC-83, EC-84, EC-85, EC-86 |
+| 🟢 P2 (Medium) | 22 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, EC-29, EC-32, EC-35, EC-42, EC-46, ~~EC-47~~✅, EC-49, EC-54, ~~EC-55~~✅, ~~EC-56~~✅, EC-57, EC-62, ~~EC-68~~✅, EC-69, EC-72, EC-75, EC-79, EC-87, EC-88 |
 | 🔵 P3 (Low) | 38+ | All others |
 
 **Completed:** EC-21, EC-22, EC-23, EC-25, EC-47, EC-48, EC-55, EC-56, EC-68
@@ -1415,5 +1802,5 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | EC-60 (DST) | UTC everywhere |
 | EC-68 (Res/Bus Address) | Address type field + dynamic geofence (50m/100m) + building details |
 
-**Total Edge Cases Documented: 80**
-**Total Edge Cases Implemented: 27**
+**Total Edge Cases Documented: 88**
+**Total Edge Cases Implemented: 37**
