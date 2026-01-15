@@ -2218,13 +2218,13 @@ admin.database().ref(`deliveries/${deliveryId}`).transaction((delivery) => {
 | Priority | Count | Edge Cases |
 |----------|-------|------------|
 | 🔴 P0 (Critical) | 8 | ~~EC-01~~✅, ~~EC-06~~✅, ~~EC-18~~✅, ~~EC-31~~✅, ~~EC-77~~✅, EC-80, ~~EC-81~~✅, EC-99 |
-| 🟡 P1 (High) | 25 | ~~EC-02~~✅, ~~EC-03~~✅, ~~EC-04~~✅, ~~EC-07~~✅, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, ~~EC-78~~✅, ~~EC-82~~✅, ~~EC-83~~✅, ~~EC-84~~✅, ~~EC-85~~✅, ~~EC-86~~✅, EC-89, EC-90, EC-91, EC-96 |
-| 🟢 P2 (Medium) | 27 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, ~~EC-29~~✅, ~~EC-32~~✅, ~~EC-35~~✅, EC-42, ~~EC-46~~✅, ~~EC-47~~✅, ~~EC-49~~✅, EC-54, ~~EC-55~~✅, ~~EC-56~~✅, EC-57, EC-62, ~~EC-66~~✅, ~~EC-68~~✅, EC-69, EC-72, EC-75, ~~EC-79~~✅, EC-87, EC-88, EC-92, EC-93, EC-94, EC-97 |
-| 🔵 P3 (Low) | 39+ | ~~EC-05~~✅, EC-09, ~~EC-10~~✅, ~~EC-11~~✅, ~~EC-12~~✅, EC-13, ~~EC-14~~✅, ~~EC-15~~✅, ~~EC-17~~✅, ~~EC-20~~✅, ~~EC-24~~✅, EC-26-28, EC-30, EC-33-34, ~~EC-36~~✅, EC-37-38, EC-40, EC-43-44, EC-50-53, EC-57-58, ~~EC-60~~✅, EC-63-65, EC-69-76, EC-95, EC-98 |
+| 🟡 P1 (High) | 31 | ~~EC-02~~✅, ~~EC-03~~✅, ~~EC-04~~✅, ~~EC-07~~✅, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, ~~EC-78~~✅, ~~EC-82~~✅, ~~EC-83~~✅, ~~EC-84~~✅, ~~EC-85~~✅, ~~EC-86~~✅, EC-89, EC-90, EC-91, EC-96, EC-100, EC-101, EC-103 |
+| 🟢 P2 (Medium) | 28 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, ~~EC-29~~✅, ~~EC-32~~✅, ~~EC-35~~✅, EC-42, ~~EC-46~~✅, ~~EC-47~~✅, ~~EC-49~~✅, EC-54, ~~EC-55~~✅, ~~EC-56~~✅, EC-57, EC-62, ~~EC-66~~✅, ~~EC-68~~✅, EC-69, EC-72, EC-75, ~~EC-79~~✅, EC-87, EC-88, EC-92, EC-93, EC-94, EC-97 |
+| 🔵 P3 (Low) | 35+ | ~~EC-05~~✅, EC-09, ~~EC-10~~✅, ~~EC-11~~✅, ~~EC-12~~✅, EC-13, ~~EC-14~~✅, ~~EC-15~~✅, ~~EC-17~~✅, ~~EC-20~~✅, ~~EC-24~~✅, EC-26-28, EC-30, EC-33-34, ~~EC-36~~✅, EC-37-38, EC-40, EC-43-44, EC-50-53, EC-57-58, ~~EC-60~~✅, EC-63-65, EC-69-76, EC-95, EC-98 |
 
 ---
 
-## 🆕 Newly Added Edge Cases (EC-89 to EC-99)
+## 🆕 Newly Added Edge Cases (EC-89 to EC-103)
 
 | EC# | Name | Category | Priority |
 |-----|------|----------|----------|
@@ -2239,6 +2239,9 @@ admin.database().ref(`deliveries/${deliveryId}`).transaction((delivery) => {
 | EC-97 | Face Not Found Timeout | 🔧 Hardware | P2 |
 | EC-98 | Panic Mash (Rapid Taps) | 📱 UI/Input | P3 |
 | EC-99 | Double-Tap Race Condition | ⚡ Concurrency | P0 |
+| EC-100 | Epoch Brick (TLS Cert Validity) | ⏱️ Time/Clock | P1 |
+| EC-101 | Promo Spam DoS (Telco SMS Flood) | 📶 Cellular/Modem | P1 |
+| EC-103 | I2C Bus Hang (Hardware Lockup) | 🔧 Hardware | P1 |
 
 ---
 
@@ -2292,5 +2295,191 @@ admin.database().ref(`deliveries/${deliveryId}`).transaction((delivery) => {
 
 ---
 
-**Total Edge Cases Documented: 99**
+## ⏱️ Time & Clock Edge Cases
+
+### EC-100: The "Epoch" Brick (TLS Certificate Validity)
+**Scenario:** Battery drains completely. ESP32 RTC resets to Jan 1, 1970. Device boots and tries to connect to Firebase (HTTPS).
+
+| Symptom | Implementation |
+|---------|----------------|
+| TLS handshake fails immediately | Certificate's "Not Before" date (2024) is "in the future" |
+| Device appears online but can't auth | All Firebase connections rejected |
+| Deadlock | Can't get NTP time without internet; can't connect securely without correct time |
+
+| Solution | Implementation |
+|----------|----------------|
+| Unsecured time fetch | If TLS fails, attempt HTTP (not HTTPS) to `http://worldtimeapi.org` for epoch |
+| BLE time push | Rider App pushes current timestamp via Bluetooth as boot recovery |
+| RTC battery backup | Hardware: Add coin cell (CR2032) to maintain RTC during power loss |
+| Graceful fallback | Cache last known valid time to SPIFFS, use as minimum bound |
+
+**Boot Recovery Flow:**
+```
+1. ESP32 boots, RTC shows 1970
+2. Attempt Firebase HTTPS → TLS FAIL (cert not yet valid)
+3. Fallback: HTTP GET http://worldtimeapi.org/api/ip
+4. Parse epoch from response, set RTC
+5. Retry Firebase HTTPS → SUCCESS
+6. If HTTP also fails: Wait for BLE time sync from Rider App
+```
+
+**Time Sources Priority:**
+| Priority | Source | Security |
+|----------|--------|----------|
+| 1 | Firebase server time | Secure (HTTPS) |
+| 2 | NTP pool | Secure (if TLS works) |
+| 3 | worldtimeapi.org HTTP | **Insecure** (time-only, one-shot) |
+| 4 | Rider App BLE push | Trusted (paired device) |
+| 5 | Last cached time | Minimum bound only |
+
+**Status:** ⬜ TODO
+
+---
+
+## 📶 Cellular/Modem Edge Cases
+
+### EC-101: The "Promo Spam" DoS (Telco Specific)
+**Scenario:** Using prepaid SIM (Smart/Globe Philippines). Overnight, telco sends 30+ promo SMS ("UNLI DATA 99", "Lotto Updates").
+
+| Symptom | Implementation |
+|---------|----------------|
+| SIM7600 SMS memory fills up | Modem storage exhausted |
+| UART buffer flooded | +CMTI notifications overwhelm ESP32 |
+| Data commands fail | Modem stuck processing SMS interrupts |
+| Device appears offline | Can't send GPS or status updates |
+
+| Solution | Implementation |
+|----------|----------------|
+| Aggressive flush on boot | `AT+CMGD=1,4` deletes ALL SMS in `setup()` |
+| Disable SMS URCs | `AT+CNMI=0,0,0,0,0` mutes new message notifications |
+| Periodic cleanup | Every hour, flush SMS storage |
+| Separate SMS slot | Use only slot 1-5 for system SMS, delete 6+ |
+
+**Modem Initialization Sequence:**
+```cpp
+// In setup() - BEFORE any data operations
+void initModem() {
+  // 1. Delete ALL SMS messages (type 4 = all messages)
+  sendAT("AT+CMGD=1,4");
+  delay(1000);
+  
+  // 2. Disable Unsolicited Result Codes for SMS
+  // Parameters: mode, mt, bm, ds, bfr (all 0 = disabled)
+  sendAT("AT+CNMI=0,0,0,0,0");
+  delay(100);
+  
+  // 3. Set SMS to text mode (for easier parsing if needed)
+  sendAT("AT+CMGF=1");
+  delay(100);
+  
+  // 4. Now safe to proceed with data operations
+}
+```
+
+**Periodic Maintenance:**
+```cpp
+// Call every hour via non-blocking timer
+void flushPromoSMS() {
+  sendAT("AT+CMGD=1,4");  // Delete all
+  Serial.println("[Modem] SMS storage flushed");
+}
+```
+
+**Status:** ⬜ TODO
+
+---
+
+### EC-103: The "I2C Bus" Hang (Hardware Lockup)
+**Scenario:** Vibration from pothole causes SDA wire on OLED/LCD to touch Ground or disconnect momentarily.
+
+| Symptom | Implementation |
+|---------|----------------|
+| Code hangs at `Wire.endTransmission()` | Standard Wire library is blocking |
+| Infinite wait for ACK | I2C slave not responding |
+| WDT reboot loop | Watchdog triggers, device reboots, hangs again |
+| Constant rebooting while driving | Unusable system |
+
+| Solution | Implementation |
+|----------|----------------|
+| I2C timeout | `Wire.setTimeOut(100)` (ESP32-specific, 100ms max) |
+| Bus recovery | Bit-bang SCL 9 times to clear stuck bus |
+| Retry with backoff | Max 3 attempts before marking display FAILED |
+| Graceful degradation | Continue without display (use LED/buzzer fallback) |
+
+**I2C Recovery Protocol:**
+```cpp
+#define I2C_SDA 21
+#define I2C_SCL 22
+#define I2C_TIMEOUT_MS 100
+
+void setupI2C() {
+  Wire.begin(I2C_SDA, I2C_SCL);
+  Wire.setTimeOut(I2C_TIMEOUT_MS);  // ESP32: prevents infinite blocking
+}
+
+// Standard I2C bus recovery - bit-bang 9 clock pulses
+bool recoverI2CBus() {
+  Wire.end();  // Release I2C pins
+  
+  pinMode(I2C_SDA, INPUT_PULLUP);
+  pinMode(I2C_SCL, OUTPUT);
+  
+  // Send 9 clock pulses to release any stuck slave
+  for (int i = 0; i < 9; i++) {
+    digitalWrite(I2C_SCL, LOW);
+    delayMicroseconds(5);
+    digitalWrite(I2C_SCL, HIGH);
+    delayMicroseconds(5);
+  }
+  
+  // Generate STOP condition
+  pinMode(I2C_SDA, OUTPUT);
+  digitalWrite(I2C_SDA, LOW);
+  delayMicroseconds(5);
+  digitalWrite(I2C_SCL, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(I2C_SDA, HIGH);
+  delayMicroseconds(5);
+  
+  // Reinitialize I2C
+  Wire.begin(I2C_SDA, I2C_SCL);
+  Wire.setTimeOut(I2C_TIMEOUT_MS);
+  
+  return true;
+}
+
+// Safe I2C write with recovery
+bool safeI2CWrite(uint8_t addr, uint8_t* data, size_t len) {
+  for (int attempt = 0; attempt < 3; attempt++) {
+    Wire.beginTransmission(addr);
+    Wire.write(data, len);
+    uint8_t result = Wire.endTransmission();
+    
+    if (result == 0) return true;  // Success
+    
+    Serial.printf("[I2C] Error %d, attempt %d/3\n", result, attempt + 1);
+    recoverI2CBus();
+    delay(50);
+  }
+  
+  Serial.println("[I2C] Bus recovery failed - marking display as FAILED");
+  return false;
+}
+```
+
+**I2C Error Codes:**
+| Code | Meaning | Action |
+|------|---------|--------|
+| 0 | Success | Continue |
+| 1 | Data too long | Check buffer size |
+| 2 | NACK on address | Device not present - recover bus |
+| 3 | NACK on data | Device busy - retry |
+| 4 | Other error | Recover bus |
+| 5 | Timeout | Recover bus (ESP32 specific) |
+
+**Status:** ⬜ TODO
+
+---
+
+**Total Edge Cases Documented: 102**
 **Total Edge Cases Implemented: 43**
