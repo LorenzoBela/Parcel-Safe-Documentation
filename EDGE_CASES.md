@@ -298,8 +298,8 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 - [x] Geofence breach alert for stolen box (EC-81) ✅ Unit tests pass
 - [x] Admin remote lockdown of stolen box (EC-81) ✅ Unit tests pass
 - [x] Rider theft report flow (EC-81) ✅ Unit tests pass
-- [ ] Keypad stuck key detection (EC-82)
-- [ ] Box hinge damage detection (EC-83)
+- [x] Keypad stuck key detection (EC-82) ✅ Unit tests pass
+- [x] Box hinge damage detection (EC-83) ✅ Unit tests pass
 - [ ] GPS antenna obstruction fallback (EC-84)
 - [ ] Sender package recall flow (EC-85)
 - [ ] I2C display failure fallback (EC-86)
@@ -498,6 +498,59 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
   - Boot count tracking for maintenance insights
   - `shouldResumeDelivery()` helper for UI decisions
   - Audit trail with restored_state details
+
+---
+
+### EC-82: Keypad Malfunction (Stuck Key)
+**Scenario:** A key on the 4x4 keypad is mechanically stuck or shorted.
+
+| Detection | Implementation |
+|-----------|----------------|
+| Logic | Check if key pressed > 10 seconds |
+| Verification | Hardware interrupt / polling loop |
+| Safety | Disable keypad input if stuck to prevent ghost presses |
+
+| Solution | Implementation |
+|----------|----------------|
+| Alert | "Key stuck" warning to Firebase |
+| UI Banner | Rider sees "Keypad Malfunction" |
+| Fallback | Mobile App Unlock (ignore keypad) |
+
+**Status:** ✅ Done - Full implementation
+- ESP32 firmware: `LockControl.h` (or main loop) - Stuck key detection logic
+- Firebase reporting: `hardware/{boxId}/keypad` with `is_stuck`, `stuck_key`
+- Web/Mobile: Alerts and persistent warning banners
+- Tests: `hardwareFailures.test.ts` (web/mobile), `test_edge_cases.h` (hardware)
+- Features:
+  - 10-second threshold for stuck detection
+  - Auto-reset when key released
+  - Critical severity alert
+
+---
+
+### EC-83: Box Hinge Damage Detection
+**Scenario:** Box hinge is damaged or compromised (e.g., forced open attempt).
+
+| Detection | Implementation |
+|-----------|----------------|
+| Sensor Mismatch | Door sensor says OPEN but Lock is LOCKED |
+| Flapping | Sensor toggles rapidly (flapping in wind) |
+
+| Solution | Implementation |
+|----------|----------------|
+| Immediate Lockout | Mark box OUT_OF_SERVICE |
+| Alert | Critical "Physical Damage" alert |
+| Evidence | Timestamp validation |
+
+**Status:** ✅ Done - Full implementation
+- ESP32 firmware: Hinge sensing logic
+- Firebase reporting: `hardware/{boxId}/hinge` with `status` (DAMAGED/FLAPPING)
+- Web/Mobile: Critical alerts and delivery blocking
+- Tests: `hardwareFailures.test.ts` (web/mobile), `test_edge_cases.h` (hardware)
+- Features:
+  - DAMAGED state blocks all operations
+  - FLAPPING state warns but allows operation
+  - Persistent Firebase status
 
 ---
 
@@ -1764,11 +1817,11 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | Priority | Count | Edge Cases |
 |----------|-------|------------|
 | 🔴 P0 (Critical) | 7 | EC-01, EC-06, EC-18, EC-31, EC-77, EC-80, EC-81 |
-| 🟡 P1 (High) | 21 | EC-02, EC-03, EC-04, EC-07, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, EC-78, EC-82, EC-83, EC-84, EC-85, EC-86 |
+| 🟡 P1 (High) | 21 | EC-02, EC-03, EC-04, EC-07, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, EC-78, ~~EC-82~~✅, ~~EC-83~~✅, EC-84, EC-85, EC-86 |
 | 🟢 P2 (Medium) | 22 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, EC-29, EC-32, EC-35, EC-42, EC-46, ~~EC-47~~✅, EC-49, EC-54, ~~EC-55~~✅, ~~EC-56~~✅, EC-57, EC-62, ~~EC-68~~✅, EC-69, EC-72, EC-75, EC-79, EC-87, EC-88 |
 | 🔵 P3 (Low) | 38+ | All others |
 
-**Completed:** EC-21, EC-22, EC-23, EC-25, EC-47, EC-48, EC-55, EC-56, EC-68
+**Completed:** EC-21, EC-22, EC-23, EC-25, EC-47, EC-48, EC-55, EC-56, EC-68, EC-82, EC-83
 
 ---
 
@@ -1801,6 +1854,8 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | EC-56 (Photo Bandwidth) | 800px/60% compression + priority queue + resumable uploads |
 | EC-60 (DST) | UTC everywhere |
 | EC-68 (Res/Bus Address) | Address type field + dynamic geofence (50m/100m) + building details |
+| EC-82 (Keypad Stuck) | 10s press detection + Firebase status + Critical alerts |
+| EC-83 (Hinge Damage) | Sensor mismatch logic + DAMAGED status + Operation lockout |
 
 **Total Edge Cases Documented: 88**
 **Total Edge Cases Implemented: 37**

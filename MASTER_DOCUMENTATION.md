@@ -207,6 +207,8 @@ OVERALL:        ████████████████░░░░░�
 | EC-79 | Photo Upload and OTP Revocation Race | Hardware, Mobile, Web | ✅ Done |
 | EC-20 | OTP Collision Prevention | Hardware, Mobile, Web | ✅ Done |
 | EC-29 | Customer Shares OTP (Instant Regen) | Hardware, Mobile, Web | ✅ Done |
+| EC-82 | Keypad Stuck Key | Hardware, Mobile, Web | ✅ Done |
+| EC-83 | Box Hinge Damage | Hardware, Mobile, Web | ✅ Done |
 
 ### Priority Matrix
 
@@ -425,7 +427,7 @@ OVERALL:        ████████████████░░░░░�
 | 📅 Time-Based | EC-73 to EC-76 | 4 | 0 (0%) |
 | ⚡ Concurrency | EC-77 to EC-80 | 4 | 3 (75%) |
 | 🔒 Asset Protection | EC-81 | 1 | 0 (0%) |
-| 🛠️ Hardware Degradation | EC-82 to EC-85 | 4 | 0 (0%) |
+| 🛠️ Hardware Degradation | EC-82 to EC-85 | 4 | 2 (50%) |
 | 🖥️ I2C Display | EC-86 to EC-88 | 3 | 0 (0%) |
 | **Total** | | **88** | **37 (42%)** |
 
@@ -529,7 +531,7 @@ OVERALL:        ████████████████░░░░░�
 | EC-73 to EC-76 | 📅 Time-Based (Leap year, holidays) | 4 | ⬜ TODO |
 | EC-77 to EC-80 | ⚡ Concurrency (Override, reassignment) | 4 | 🟡 Partial (EC-77, EC-78, EC-79 ✅) |
 | **EC-81** | 🔒 **Top Box Stolen** (NEW) | 1 | ⬜ TODO |
-| EC-82 to EC-85 | 🛠️ **Hardware Degradation** (Keypad, Hinge, GPS, Recall) (NEW) | 4 | ⬜ TODO |
+| EC-82 to EC-85 | 🛠️ **Hardware Degradation** (Keypad, Hinge, GPS, Recall) (NEW) | 4 | 🟡 Partial (EC-82 ✅, EC-83 ✅) |
 | EC-86 to EC-88 | 🖥️ **I2C Display** (Failure, Sunlight, Burn-in) (NEW) | 3 | ⬜ TODO |
 
 ---
