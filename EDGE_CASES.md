@@ -2481,5 +2481,115 @@ bool safeI2CWrite(uint8_t addr, uint8_t* data, size_t len) {
 
 ---
 
-**Total Edge Cases Documented: 102**
-**Total Edge Cases Implemented: 43**
+### EC-92: Urban Canyon Flicker
+**Scenario:** Rider enters urban area with tall buildings (Makati, BGC). GPS signal bounces between building walls, causing rapid alternation between "inside" and "outside" the delivery geofence.
+
+| Symptom | Impact |
+|---------|--------|
+| GPS accuracy drops (HDOP > 5.0) | False state transitions |
+| Location jumps 50-100m randomly | Customer sees rider "teleporting" |
+| Status flickers ARRIVED ↔ IN_TRANSIT | Poor UX, confusion |
+
+| Solution | Implementation |
+|----------|----------------|
+| Hysteresis threshold | Require 3 consecutive readings inside geofence before ARRIVED |
+| Time dampening | Status persists for 10s minimum before transition |
+| HDOP-gated decisions | Ignore location updates when HDOP > 5.0 |
+| Urban zone detection | Expand geofence radius when HDOP indicates urban canyon |
+
+**Configuration:**
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `HDOP_DEGRADED` | 5.0 | Urban canyon detection threshold |
+| `MIN_SATELLITES` | 4 | Minimum for reliable GPS fix |
+| `HYSTERESIS_SAMPLES` | 3 | Consecutive readings required |
+| `STABILITY_WINDOW_MS` | 10000 | Time window for state persistence |
+
+**Implementation Files:**
+- Hardware: `GeofenceStability.h`
+- Mobile: `geofenceStabilityService.ts`
+- Web: `firebaseClient.ts` (`subscribeToGeofenceStability`)
+
+**Status:** ✅ Done
+
+---
+
+### EC-93: Zombie Delivery (Warehouse Return)
+**Scenario:** Rider cannot complete delivery (customer unreachable after 5 attempts). Rider returns to warehouse/depot. System still shows delivery as "IN_TRANSIT" and continues tracking.
+
+| Symptom | Impact |
+|---------|--------|
+| Rider at warehouse coordinates | Delivery appears stuck |
+| No status update sent | Customer confused by warehouse location |
+| Box GPS still transmitting | Unnecessary battery/data usage |
+
+| Solution | Implementation |
+|----------|----------------|
+| Warehouse geofence detection | Define warehouse/depot coordinates |
+| Auto-return status | If inside warehouse geofence for 5 min → "RETURNED_TO_DEPOT" |
+| Customer notification | Push "Your package is returning to sender" |
+| Track termination | Stop live tracking, show "Delivered to depot" state |
+
+**Configuration:**
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `WAREHOUSE_RETURN_TIMEOUT_MS` | 300000 | 5 minutes in warehouse = return |
+| `DEFAULT_RADIUS_M` | 50 | Warehouse geofence radius |
+
+**Firebase Structure:**
+```
+/hardware/{boxId}/warehouse_return
+├── detected: true
+├── depot_id: "warehouse_manila_01"
+├── entered_at: timestamp
+├── auto_return_triggered: boolean
+└── timestamp: timestamp
+```
+
+**Status:** ✅ Done
+
+---
+
+### EC-94: Boundary Hopper (GPS Jitter)
+**Scenario:** Rider stops exactly at geofence boundary (50m). Normal GPS jitter (±10m accuracy) causes position to oscillate in/out of the geofence.
+
+| Symptom | Impact |
+|---------|--------|
+| Position at exactly 50m ± 10m | Boundary oscillation |
+| Status changes every 1-2 seconds | Customer sees "roller coaster" |
+| Multiple ARRIVED/DEPARTED events logged | Spam notifications |
+
+| Solution | Implementation |
+|----------|----------------|
+| Enter hysteresis (inner radius) | Must be < 40m to enter ARRIVED state |
+| Exit hysteresis (outer radius) | Must be > 60m to exit ARRIVED state |
+| Dead zone (40m-60m) | No status change while in dead zone |
+| First-entry lock | Once ARRIVED, stay ARRIVED unless clearly departed |
+
+**Hysteresis Diagram:**
+```
+     0m          40m         50m         60m         100m+
+     |-----------|-----------|-----------|-----------|
+     | INSIDE    |  DEAD     |   DEAD    | OUTSIDE   |
+     | (enter)   |  ZONE     |   ZONE    | (exit)    |
+     |           | (no change)| (no change)|          |
+```
+
+**Configuration:**
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `INNER_RADIUS_M` | 40 | Must be inside this for ARRIVED |
+| `OUTER_RADIUS_M` | 60 | Must be outside this to exit ARRIVED |
+| `DEFAULT_RADIUS_M` | 50 | Standard geofence (reference only) |
+
+**Test Coverage:**
+- Hardware: `test_ec94_inner_radius_enters_arrived`, `test_ec94_outer_radius_exits_arrived`, `test_ec94_dead_zone_maintains_state`, `test_ec94_boundary_oscillation_stable`
+- Mobile: `GeofenceStability.test.ts` - "EC-94: Boundary Hopper" suite
+- Web: `ec92-94GeofenceStability.test.ts` - "EC-94: Boundary Hopper" suite
+
+**Status:** ✅ Done
+
+---
+
+**Total Edge Cases Documented: 105**
+**Total Edge Cases Implemented: 46**

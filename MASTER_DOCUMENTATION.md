@@ -48,7 +48,7 @@
 | 🌐 Web Portal Use Cases | 10 | 9 | 8 | 90% |
 | 📱 Mobile Use Cases | 10 | 9 | 8 | 90% |
 | 🔌 Integration Use Cases | 4 | 1 | 0 | 25% |
-| ⚡ Edge Cases | 88 | 37 | 33 | 42% |
+| ⚡ Edge Cases | 91 | 42 | 38 | 46% |
 | 📏 Boundary Cases | 116 | 95 | 85 | 82% |
 | ❌ Negative Cases | 120 | 90 | 80 | 75% |
 | 🔄 State Transitions | 109 | 70 | 65 | 64% |
@@ -211,6 +211,9 @@ OVERALL:        ████████████████░░░░░�
 | EC-83 | Box Hinge Damage | Hardware, Mobile, Web | ✅ Done |
 | EC-84 | GPS Antenna Obstruction | Hardware, Mobile, Web | ✅ Done |
 | EC-85 | Package Recall Mid-Transit | Mobile, Web | ✅ Done |
+| EC-92 | Urban Canyon Flicker (Geofence) | Hardware, Mobile, Web | ✅ Done |
+| EC-93 | Zombie Delivery (Warehouse Return) | Hardware, Mobile, Web | ✅ Done |
+| EC-94 | Boundary Hopper (GPS Jitter) | Hardware, Mobile, Web | ✅ Done |
 
 ### Priority Matrix
 
@@ -430,8 +433,8 @@ OVERALL:        ████████████████░░░░░�
 | ⚡ Concurrency | EC-77 to EC-80 | 4 | 3 (75%) |
 | 🔒 Asset Protection | EC-81 | 1 | 0 (0%) |
 | 🛠️ Hardware Degradation | EC-82 to EC-85 | 4 | 4 (100%) |
-| 🖥️ I2C Display | EC-86 to EC-88 | 3 | 0 (0%) |
-| **Total** | | **88** | **39 (44%)** |
+| 📍 Geofence Stability | EC-92 to EC-94 | 3 | 3 (100%) |
+| **Total** | | **91** | **42 (46%)** |
 
 ---
 
