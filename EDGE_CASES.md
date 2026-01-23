@@ -1824,7 +1824,12 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 - Failed refresh triggers "Session Expiring" warning
 - Hard failure after 3 refresh attempts → force re-login
 
-**Status:** ⬜ TODO
+**Implementation Files:**
+- Mobile: `tokenRefreshService.ts`, `SessionExpiryBanner.tsx`
+- Mobile/Web: `firebaseClient.ts` (`TokenHealthState`, `subscribeToTokenHealth`)
+- Hardware: Token health constants in `test_edge_cases.h`
+
+**Status:** ✅ Done
 
 ---
 
@@ -1861,7 +1866,12 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 └── last_successful_unlock_voltage: float
 ```
 
-**Status:** ⬜ TODO
+**Implementation Files:**
+- Hardware: `LockControl.h` (`readBatteryVoltage()`, `checkVoltage()`, `unlockSafe()`)
+- Mobile: `LowBatteryBanner.tsx`, `firebaseClient.ts` (`PowerState`, `subscribeToPower`)
+- Web: `firebaseClient.ts` (`PowerState`, `subscribeToPower`, `getPowerStatusColor`)
+
+**Status:** ✅ Done
 
 ---
 
@@ -1900,7 +1910,12 @@ enableKeypadInterrupt();
 processQueuedKeyEvents();
 ```
 
-**Status:** ⬜ TODO
+**Implementation Files:**
+- Hardware: `ResourceLock.h` (critical section management, event queue, WDT feeding)
+- Mobile: `firebaseClient.ts` (`ResourceConflictState`, `subscribeToResourceConflict`, `isBoxBusy`)
+- Web: `firebaseClient.ts` (`ResourceConflictState`, `subscribeToResourceConflict`, `getWdtResetCount`)
+
+**Status:** ✅ Done
 
 ---
 
@@ -2218,7 +2233,7 @@ admin.database().ref(`deliveries/${deliveryId}`).transaction((delivery) => {
 | Priority | Count | Edge Cases |
 |----------|-------|------------|
 | 🔴 P0 (Critical) | 8 | ~~EC-01~~✅, ~~EC-06~~✅, ~~EC-18~~✅, ~~EC-31~~✅, ~~EC-77~~✅, EC-80, ~~EC-81~~✅, EC-99 |
-| 🟡 P1 (High) | 31 | ~~EC-02~~✅, ~~EC-03~~✅, ~~EC-04~~✅, ~~EC-07~~✅, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, ~~EC-78~~✅, ~~EC-82~~✅, ~~EC-83~~✅, ~~EC-84~~✅, ~~EC-85~~✅, ~~EC-86~~✅, EC-89, EC-90, EC-91, EC-96, EC-100, EC-101, EC-103 |
+| 🟡 P1 (High) | 31 | ~~EC-02~~✅, ~~EC-03~~✅, ~~EC-04~~✅, ~~EC-07~~✅, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, ~~EC-78~~✅, ~~EC-82~~✅, ~~EC-83~~✅, ~~EC-84~~✅, ~~EC-85~~✅, ~~EC-86~~✅, ~~EC-89~~✅, ~~EC-90~~✅, ~~EC-91~~✅, EC-96, EC-100, EC-101, EC-103 |
 | 🟢 P2 (Medium) | 28 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, ~~EC-29~~✅, ~~EC-32~~✅, ~~EC-35~~✅, EC-42, ~~EC-46~~✅, ~~EC-47~~✅, ~~EC-49~~✅, EC-54, ~~EC-55~~✅, ~~EC-56~~✅, EC-57, EC-62, ~~EC-66~~✅, ~~EC-68~~✅, EC-69, EC-72, EC-75, ~~EC-79~~✅, EC-87, EC-88, EC-92, EC-93, EC-94, EC-97 |
 | 🔵 P3 (Low) | 35+ | ~~EC-05~~✅, EC-09, ~~EC-10~~✅, ~~EC-11~~✅, ~~EC-12~~✅, EC-13, ~~EC-14~~✅, ~~EC-15~~✅, ~~EC-17~~✅, ~~EC-20~~✅, ~~EC-24~~✅, EC-26-28, EC-30, EC-33-34, ~~EC-36~~✅, EC-37-38, EC-40, EC-43-44, EC-50-53, EC-57-58, ~~EC-60~~✅, EC-63-65, EC-69-76, EC-95, EC-98 |
 
@@ -2481,6 +2496,126 @@ bool safeI2CWrite(uint8_t addr, uint8_t* data, size_t len) {
 
 ---
 
+### EC-89: Zombie Token (Auth Expiry Mid-Delivery)
+**Scenario:** Rider's Firebase authentication token expires mid-delivery (typical 1-hour Firebase token limit). Box operations fail with 401 errors.
+
+| Symptom | Impact |
+|---------|--------|
+| API calls return 401 Unauthorized | Rider can't update delivery status |
+| Photo uploads fail silently | Missing proof of delivery |
+| Real-time sync stops | Customer loses tracking |
+
+| Solution | Implementation |
+|----------|----------------|
+| Proactive refresh | Check token age every 5 minutes, refresh at 55 min |
+| Exponential backoff | Retry failed refreshes: 1s, 2s, 4s, ... max 16s |
+| Force re-login | After 3 failed attempts, prompt rider to sign in again |
+| Session expiry banner | UI warning when token is expiring |
+
+**Configuration:**
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `CHECK_INTERVAL_MS` | 300000 | 5 minute check interval |
+| `REFRESH_THRESHOLD_MS` | 3300000 | Refresh when older than 55 min |
+| `TOKEN_VALIDITY_MS` | 3600000 | Token valid for 60 min |
+| `MAX_REFRESH_ATTEMPTS` | 3 | Max retries before force re-login |
+
+**Implementation Files:**
+- Mobile: `tokenRefreshService.ts`, `SessionExpiryBanner.tsx`
+- Web: `TokenHealthBanner.tsx`, `firebaseClient.ts`
+- Tests: `EC89TokenRefresh.test.ts`, `ec89TokenRefresh.test.ts`
+
+**Status:** ✅ Done
+
+---
+
+### EC-90: Brownout Actuation (Low Voltage Lockout)
+**Scenario:** Battery low, firing solenoid causes voltage sag that reboots ESP32 mid-unlock. Lock stays closed, customer locked out.
+
+| Symptom | Impact |
+|---------|--------|
+| ESP32 reboots when solenoid fires | Lock actuation incomplete |
+| Voltage drops from 11.8V to 10V | Brownout reset triggered |
+| Customer enters correct OTP | Box never unlocks |
+
+| Solution | Implementation |
+|----------|----------------|
+| Pre-check voltage | Read ADC before solenoid actuation |
+| Block at critical | If V < 11.5V, refuse unlock with message |
+| Warning threshold | Show "Low Battery" at V < 12.0V |
+| Graceful feedback | Display shows battery status, explain why unlock blocked |
+
+**Voltage Thresholds:**
+| Constant | Value | Status |
+|----------|-------|--------|
+| `VOLTAGE_HEALTHY` | ≥12.0V | Normal operation |
+| `VOLTAGE_WARNING` | 11.5-12.0V | Low battery warning |
+| `VOLTAGE_CRITICAL` | <11.5V | Block solenoid |
+| `VOLTAGE_DEAD` | <10.5V | System shutdown |
+
+**ADC Configuration:**
+```cpp
+#define BATTERY_PIN 34
+#define ADC_RESOLUTION 4095
+#define VOLTAGE_DIVIDER_RATIO 5.7
+#define VREF 3.3
+```
+
+**Implementation Files:**
+- Hardware: `LockControl.h` (`readBatteryVoltage()`, `unlockSafe()`)
+- Mobile: `LowBatteryBanner.tsx`, `firebaseClient.ts`
+- Web: `HardwareStatusPanel.tsx`, `firebaseClient.ts`
+- Tests: `EC90BrownoutActuation.test.ts`, `ec90PowerState.test.ts`, `test_edge_cases.h`
+
+**Status:** ✅ Done
+
+---
+
+### EC-91: Priority Interrupt Crash (Resource Conflict)
+**Scenario:** Camera writing to SD/SPIFFS while user mashes keypad. Interrupt storm causes WDT reset.
+
+| Symptom | Impact |
+|---------|--------|
+| Keypad interrupts during SPIFFS write | Data corruption |
+| Camera capture + rapid key presses | Watchdog reset |
+| System reboots repeatedly | Unusable during photo capture |
+
+| Solution | Implementation |
+|----------|----------------|
+| Critical sections | Disable keypad interrupts during camera/SPIFFS ops |
+| Event queue | Queue key events during critical section (max 10) |
+| Watchdog feeding | Feed WDT during long operations |
+| Graceful recovery | Process queued events after critical section ends |
+
+**Configuration:**
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `MAX_QUEUE_SIZE` | 10 | Maximum queued key events |
+| `CAMERA_CAPTURE_DURATION_MS` | 500 | Typical capture time |
+| `SPIFFS_WRITE_DURATION_MS` | 200 | Typical write time |
+| `SAFETY_TIMEOUT_MS` | 3000 | Max critical section duration |
+
+**Critical Section Types:**
+```cpp
+typedef enum {
+    CRITICAL_NONE = 0,
+    CRITICAL_CAMERA_CAPTURE = 1,
+    CRITICAL_SPIFFS_WRITE = 2,
+    CRITICAL_FIREBASE_UPLOAD = 3,
+    CRITICAL_OTP_VALIDATION = 4
+} CriticalSectionType;
+```
+
+**Implementation Files:**
+- Hardware: `ResourceLock.h`
+- Mobile: `firebaseClient.ts`, `HardwareStatusScreen.tsx`
+- Web: `HardwareStatusPanel.tsx`, `firebaseClient.ts`
+- Tests: `EC91ResourceConflict.test.ts`, `ec91ResourceConflict.test.ts`, `test_edge_cases.h`
+
+**Status:** ✅ Done
+
+---
+
 ### EC-92: Urban Canyon Flicker
 **Scenario:** Rider enters urban area with tall buildings (Makati, BGC). GPS signal bounces between building walls, causing rapid alternation between "inside" and "outside" the delivery geofence.
 
@@ -2591,5 +2726,5 @@ bool safeI2CWrite(uint8_t addr, uint8_t* data, size_t len) {
 
 ---
 
-**Total Edge Cases Documented: 105**
-**Total Edge Cases Implemented: 46**
+**Total Edge Cases Documented: 108**
+**Total Edge Cases Implemented: 49**
