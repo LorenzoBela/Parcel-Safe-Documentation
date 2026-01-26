@@ -1794,126 +1794,122 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 ## 🔐 Authentication & Session Edge Cases
 
 ### EC-89: Zombie Token (Auth Expiry Mid-Delivery)
-**Scenario:** Rider's authentication token expires mid-delivery (typical 1-hour Firebase token limit).
+**Scenario:** Rider's Firebase authentication token expires mid-delivery (typical 1-hour Firebase token limit). Box operations fail with 401 errors.
 
-| Symptom | Implementation |
-|---------|----------------|
-| Upload fails with 401 Unauthorized | Token expired between request start |
-| Rider stuck at dropoff | Cannot complete delivery actions |
-| Silent failure | App may not show clear error |
+| Symptom | Impact |
+|---------|--------|
+| API calls return 401 Unauthorized | Rider can't update delivery status |
+| Photo uploads fail silently | Missing proof of delivery |
+| Real-time sync stops | Customer loses tracking |
 
 | Solution | Implementation |
 |----------|----------------|
-| Proactive refresh | Refresh token 5 minutes before expiry |
-| Token age tracking | Monitor `auth.currentUser.getIdToken()` issued time |
-| Background refresh | Silent refresh in background task |
-| Graceful degradation | Queue actions if refresh fails, retry on reconnect |
+| Proactive refresh | Check token age every 5 minutes, refresh at 55 min |
+| Exponential backoff | Retry failed refreshes: 1s, 2s, 4s, ... max 16s |
+| Force re-login | After 3 failed attempts, prompt rider to sign in again |
+| Session expiry banner | UI warning when token is expiring |
 
-**Firebase Token Flow:**
-```
-1. Token issued at login (valid 1 hour)
-2. Every 55 minutes: background refresh request
-3. On network failure: queue refresh, retry with backoff
-4. On manual action: verify token age, refresh if >50 min old
-5. On 401 error: immediate refresh attempt before retry
-```
-
-**Mobile Implementation:**
-- Timer checks token age every 5 minutes
-- Automatic refresh if token age > 55 minutes
-- Failed refresh triggers "Session Expiring" warning
-- Hard failure after 3 refresh attempts → force re-login
+**Configuration:**
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `CHECK_INTERVAL_MS` | 300000 | 5 minute check interval |
+| `REFRESH_THRESHOLD_MS` | 3300000 | Refresh when older than 55 min |
+| `TOKEN_VALIDITY_MS` | 3600000 | Token valid for 60 min |
+| `MAX_REFRESH_ATTEMPTS` | 3 | Max retries before force re-login |
 
 **Implementation Files:**
 - Mobile: `tokenRefreshService.ts`, `SessionExpiryBanner.tsx`
-- Mobile/Web: `firebaseClient.ts` (`TokenHealthState`, `subscribeToTokenHealth`)
-- Hardware: Token health constants in `test_edge_cases.h`
+- Web: `TokenHealthBanner.tsx`, `firebaseClient.ts`
+- Tests: `EC89TokenRefresh.test.ts`, `ec89TokenRefresh.test.ts`
 
 **Status:** ✅ Done
 
 ---
 
-### EC-90: Brownout Actuation (Low Voltage Lockout)
-**Scenario:** Battery is low. Firing the solenoid causes voltage sag, rebooting the ESP32 mid-unlock.
+## 🔧 Hardware Robustness Edge Cases (Power & Resources)
 
-| Symptom | Implementation |
-|---------|----------------|
-| ESP32 reboots during unlock | Voltage drops below 3.0V (ESP32 minimum) |
-| Lock stays closed | Solenoid didn't complete actuation |
-| Customer frustrated | Valid OTP, but box won't open |
+### EC-90: Brownout Actuation (Low Voltage Lockout)
+**Scenario:** Battery low, firing solenoid causes voltage sag that reboots ESP32 mid-unlock. Lock stays closed, customer locked out.
+
+| Symptom | Impact |
+|---------|--------|
+| ESP32 reboots when solenoid fires | Lock actuation incomplete |
+| Voltage drops from 11.8V to 10V | Brownout reset triggered |
+| Customer enters correct OTP | Box never unlocks |
 
 | Solution | Implementation |
 |----------|----------------|
-| Low-voltage lockout | Disable solenoid if V < 11.5V (12V system) |
-| Pre-check | Measure voltage BEFORE firing solenoid |
-| Capacitor bank | Hardware: Large capacitor to buffer solenoid surge |
-| User notification | "Battery too low to unlock - charge required" |
+| Pre-check voltage | Read ADC before solenoid actuation |
+| Block at critical | If V < 11.5V, refuse unlock with message |
+| Warning threshold | Show "Low Battery" at V < 12.0V |
+| Graceful feedback | Display shows battery status, explain why unlock blocked |
 
-**Voltage Thresholds (12V System):**
-| Voltage | State | Action |
-|---------|-------|--------|
-| > 12.0V | HEALTHY | Normal operation |
-| 11.5-12.0V | WARNING | Allow unlock but warn rider |
-| < 11.5V | CRITICAL | **Block solenoid actuation** |
-| < 10.5V | DEAD | ESP32 may not boot |
+**Voltage Thresholds:**
+| Constant | Value | Status |
+|----------|-------|--------|
+| `VOLTAGE_HEALTHY` | ≥12.0V | Normal operation |
+| `VOLTAGE_WARNING` | 11.5-12.0V | Low battery warning |
+| `VOLTAGE_CRITICAL` | <11.5V | Block solenoid |
+| `VOLTAGE_DEAD` | <10.5V | System shutdown |
 
-**Firebase Data Structure:**
-```
-/boxes/{mac_address}/power
-├── voltage: float
-├── solenoid_blocked: boolean
-├── low_voltage_since: timestamp
-└── last_successful_unlock_voltage: float
+**ADC Configuration:**
+```cpp
+#define BATTERY_PIN 34
+#define ADC_RESOLUTION 4095
+#define VOLTAGE_DIVIDER_RATIO 5.7
+#define VREF 3.3
 ```
 
 **Implementation Files:**
-- Hardware: `LockControl.h` (`readBatteryVoltage()`, `checkVoltage()`, `unlockSafe()`)
-- Mobile: `LowBatteryBanner.tsx`, `firebaseClient.ts` (`PowerState`, `subscribeToPower`)
-- Web: `firebaseClient.ts` (`PowerState`, `subscribeToPower`, `getPowerStatusColor`)
+- Hardware: `LockControl.h` (`readBatteryVoltage()`, `unlockSafe()`)
+- Mobile: `LowBatteryBanner.tsx`, `firebaseClient.ts`
+- Web: `HardwareStatusPanel.tsx`, `firebaseClient.ts`
+- Tests: `EC90BrownoutActuation.test.ts`, `ec90PowerState.test.ts`, `test_edge_cases.h`
 
 **Status:** ✅ Done
 
 ---
 
 ### EC-91: Priority Interrupt Crash (Resource Conflict)
-**Scenario:** Camera is writing to SD/SPIFFS (heavy operation) while user mashes keypad (interrupts).
+**Scenario:** Camera writing to SD/SPIFFS while user mashes keypad. Interrupt storm causes WDT reset.
 
-| Symptom | Implementation |
-|---------|----------------|
-| WDT reset | Watchdog Timer triggers due to blocked loop |
-| Crash during photo save | Interrupt handler conflicts with SPI bus |
-| Corrupted photo | Partial write if interrupted |
+| Symptom | Impact |
+|---------|--------|
+| Keypad interrupts during SPIFFS write | Data corruption |
+| Camera capture + rapid key presses | Watchdog reset |
+| System reboots repeatedly | Unusable during photo capture |
 
 | Solution | Implementation |
 |----------|----------------|
-| Disable keypad interrupts | Temporarily disable during camera/SD operations |
-| Mutex/semaphore | SPI bus locking for shared resources |
-| Operation queue | Queue keypad events, process after camera done |
+| Critical sections | Disable keypad interrupts during camera/SPIFFS ops |
+| Event queue | Queue key events during critical section (max 10) |
 | Watchdog feeding | Feed WDT during long operations |
+| Graceful recovery | Process queued events after critical section ends |
 
-**Critical Sections:**
-| Operation | Duration | Keypad Disabled |
-|-----------|----------|-----------------|
-| Camera capture | ~500ms | YES |
-| SPIFFS write | ~200ms | YES |
-| Firebase upload | Async | NO |
-| OTP validation | ~10ms | NO |
+**Configuration:**
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `MAX_QUEUE_SIZE` | 10 | Maximum queued key events |
+| `CAMERA_CAPTURE_DURATION_MS` | 500 | Typical capture time |
+| `SPIFFS_WRITE_DURATION_MS` | 200 | Typical write time |
+| `SAFETY_TIMEOUT_MS` | 3000 | Max critical section duration |
 
-**Implementation:**
+**Critical Section Types:**
 ```cpp
-// Before camera operation
-disableKeypadInterrupt();
-feedWatchdog();
-capturePhoto();
-saveToSPIFFS();
-enableKeypadInterrupt();
-processQueuedKeyEvents();
+typedef enum {
+    CRITICAL_NONE = 0,
+    CRITICAL_CAMERA_CAPTURE = 1,
+    CRITICAL_SPIFFS_WRITE = 2,
+    CRITICAL_FIREBASE_UPLOAD = 3,
+    CRITICAL_OTP_VALIDATION = 4
+} CriticalSectionType;
 ```
 
 **Implementation Files:**
-- Hardware: `ResourceLock.h` (critical section management, event queue, WDT feeding)
-- Mobile: `firebaseClient.ts` (`ResourceConflictState`, `subscribeToResourceConflict`, `isBoxBusy`)
-- Web: `firebaseClient.ts` (`ResourceConflictState`, `subscribeToResourceConflict`, `getWdtResetCount`)
+- Hardware: `ResourceLock.h`
+- Mobile: `firebaseClient.ts`, `HardwareStatusScreen.tsx`
+- Web: `HardwareStatusPanel.tsx`, `firebaseClient.ts`
+- Tests: `EC91ResourceConflict.test.ts`, `ec91ResourceConflict.test.ts`, `test_edge_cases.h`
 
 **Status:** ✅ Done
 
@@ -1921,107 +1917,117 @@ processQueuedKeyEvents();
 
 ## 📍 Geofence & Location Edge Cases
 
-### EC-92: Urban Canyon Flicker (GPS Drift During OTP Entry)
-**Scenario:** GPS drifts 80m away due to signal reflection off buildings while user is mid-OTP entry.
+### EC-92: Urban Canyon Flicker
+**Scenario:** Rider enters urban area with tall buildings (Makati, BGC). GPS signal bounces between building walls, causing rapid alternation between "inside" and "outside" the delivery geofence.
 
-| Symptom | Implementation |
-|---------|----------------|
-| Keypad disables mid-input | Geofence says rider "left" |
-| Customer loses typed digits | OTP entry cancelled |
-| Frustrating user experience | Must wait for GPS to stabilize |
-
-| Solution | Implementation |
-|----------|----------------|
-| Geofence grace period | Once entered, stay "arrived" for 3 minutes |
-| OTP entry lock | Never disable keypad while digits being entered |
-| Hysteresis | Require 60m distance sustained for 30 seconds to leave |
-
-**State Machine:**
-```
-APPROACHING → (< 50m) → ARRIVED
-ARRIVED → (OTP entry started) → LOCKED_FOR_ENTRY
-LOCKED_FOR_ENTRY → (3 min timeout OR unlock success) → COMPLETED
-ARRIVED → (> 60m for 30s AND no OTP activity) → DEPARTED
-```
-
-**Grace Period Logic:**
-| Event | Grace Period |
-|-------|--------------|
-| First < 50m detected | Start 3-minute grace |
-| OTP digit entered | Reset to 3 minutes |
-| Correct OTP entered | Immediate unlock |
-| Grace expires + outside fence | Allow departure detection |
-
-**Status:** ⬜ TODO
-
----
-
-### EC-93: Zombie Delivery (Return to Warehouse)
-**Scenario:** Delivery failed multiple times. Rider returns to warehouse but box won't open (still geolocked to customer address).
-
-| Symptom | Implementation |
-|---------|----------------|
-| Box won't unlock at warehouse | Geofence thinks it's wrong location |
-| Package stuck in box | No way to retrieve for re-routing |
-| Rider blocked on other deliveries | Box full with undeliverable package |
+| Symptom | Impact |
+|---------|--------|
+| GPS accuracy drops (HDOP > 5.0) | False state transitions |
+| Location jumps 50-100m randomly | Customer sees rider "teleporting" |
+| Status flickers ARRIVED ↔ IN_TRANSIT | Poor UX, confusion |
 
 | Solution | Implementation |
 |----------|----------------|
-| Master Home Base | Hardcoded warehouse coordinates always valid |
-| Return Mode OTP | Special "RETURN-XXXXXX" code ignores geofence |
-| Admin override | Support can force-unlock from dashboard |
-| Multi-location whitelist | Box accepts unlock at any registered hub |
+| Hysteresis threshold | Require 3 consecutive readings inside geofence before ARRIVED |
+| Time dampening | Status persists for 10s minimum before transition |
+| HDOP-gated decisions | Ignore location updates when HDOP > 5.0 |
+| Urban zone detection | Expand geofence radius when HDOP indicates urban canyon |
 
-**Warehouse Whitelist:**
-```
-/boxes/{mac_address}/config
-├── home_bases: [
-│   { lat: 14.5995, lng: 120.9842, name: "Main Warehouse", radius_m: 200 },
-│   { lat: 14.6512, lng: 121.0497, name: "East Hub", radius_m: 100 }
-│ ]
-└── return_mode_enabled: boolean
-```
+**Configuration:**
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `HDOP_DEGRADED` | 5.0 | Urban canyon detection threshold |
+| `MIN_SATELLITES` | 4 | Minimum for reliable GPS fix |
+| `HYSTERESIS_SAMPLES` | 3 | Consecutive readings required |
+| `STABILITY_WINDOW_MS` | 10000 | Time window for state persistence |
 
-**Return Flow:**
-1. Rider marks delivery as "Failed - Returning"
-2. System generates RETURN-OTP (valid at ANY home base)
-3. Original customer OTP revoked
-4. Rider navigates to nearest hub
-5. Hub staff enters RETURN-OTP to retrieve package
+**Implementation Files:**
+- Hardware: `GeofenceStability.h`
+- Mobile: `geofenceStabilityService.ts`
+- Web: `firebaseClient.ts` (`subscribeToGeofenceStability`)
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done
 
 ---
 
-### EC-94: Boundary Hopper (GPS Jitter at Geofence Edge)
-**Scenario:** Rider parks at exactly 50m radius edge. GPS jitters ±10m continuously.
+### EC-93: Zombie Delivery (Warehouse Return)
+**Scenario:** Rider cannot complete delivery (customer unreachable after 5 attempts). Rider returns to warehouse/depot. System still shows delivery as "IN_TRANSIT" and continues tracking.
 
-| Symptom | Implementation |
-|---------|----------------|
-| UI flickers "Arrived" / "Moving" | Status changes every second |
-| OTP appears/disappears | Customer confused |
-| Multiple notifications | "Your rider has arrived" spam |
+| Symptom | Impact |
+|---------|--------|
+| Rider at warehouse coordinates | Delivery appears stuck |
+| No status update sent | Customer confused by warehouse location |
+| Box GPS still transmitting | Unnecessary battery/data usage |
 
 | Solution | Implementation |
 |----------|----------------|
-| State debouncing | Require >60m sustained for 30s to leave ARRIVED |
-| Entry threshold | Enter at 50m, exit at 60m (hysteresis) |
-| Notification cooldown | Max 1 "arrived" notification per delivery |
+| Warehouse geofence detection | Define warehouse/depot coordinates |
+| Auto-return status | If inside warehouse geofence for 5 min → "RETURNED_TO_DEPOT" |
+| Customer notification | Push "Your package is returning to sender" |
+| Track termination | Stop live tracking, show "Delivered to depot" state |
 
-**Hysteresis Implementation:**
-| Distance | Current State | Action |
-|----------|---------------|--------|
-| < 50m | IN_TRANSIT | → ARRIVED |
-| 50-60m | ARRIVED | Stay ARRIVED |
-| > 60m | ARRIVED | Start 30s departure timer |
-| > 60m for 30s | ARRIVED | → DEPARTED |
-| < 60m | (timer running) | Cancel departure timer |
+**Configuration:**
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `WAREHOUSE_RETURN_TIMEOUT_MS` | 300000 | 5 minutes in warehouse = return |
+| `DEFAULT_RADIUS_M` | 50 | Warehouse geofence radius |
 
-**Status:** ⬜ TODO
+**Firebase Structure:**
+```
+/hardware/{boxId}/warehouse_return
+├── detected: true
+├── depot_id: "warehouse_manila_01"
+├── entered_at: timestamp
+├── auto_return_triggered: boolean
+└── timestamp: timestamp
+```
+
+**Status:** ✅ Done
 
 ---
 
-## 🔧 Hardware Robustness Edge Cases
+### EC-94: Boundary Hopper (GPS Jitter)
+**Scenario:** Rider stops exactly at geofence boundary (50m). Normal GPS jitter (±10m accuracy) causes position to oscillate in/out of the geofence.
+
+| Symptom | Impact |
+|---------|--------|
+| Position at exactly 50m ± 10m | Boundary oscillation |
+| Status changes every 1-2 seconds | Customer sees "roller coaster" |
+| Multiple ARRIVED/DEPARTED events logged | Spam notifications |
+
+| Solution | Implementation |
+|----------|----------------|
+| Enter hysteresis (inner radius) | Must be < 40m to enter ARRIVED state |
+| Exit hysteresis (outer radius) | Must be > 60m to exit ARRIVED state |
+| Dead zone (40m-60m) | No status change while in dead zone |
+| First-entry lock | Once ARRIVED, stay ARRIVED unless clearly departed |
+
+**Hysteresis Diagram:**
+```
+     0m          40m         50m         60m         100m+
+     |-----------|-----------|-----------|-----------|
+     | INSIDE    |  DEAD     |   DEAD    | OUTSIDE   |
+     | (enter)   |  ZONE     |   ZONE    | (exit)    |
+     |           | (no change)| (no change)|          |
+```
+
+**Configuration:**
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `INNER_RADIUS_M` | 40 | Must be inside this for ARRIVED |
+| `OUTER_RADIUS_M` | 60 | Must be outside this to exit ARRIVED |
+| `DEFAULT_RADIUS_M` | 50 | Standard geofence (reference only) |
+
+**Test Coverage:**
+- Hardware: `test_ec94_inner_radius_enters_arrived`, `test_ec94_outer_radius_exits_arrived`, `test_ec94_dead_zone_maintains_state`, `test_ec94_boundary_oscillation_stable`
+- Mobile: `GeofenceStability.test.ts` - "EC-94: Boundary Hopper" suite
+- Web: `ec92-94GeofenceStability.test.ts` - "EC-94: Boundary Hopper" suite
+
+**Status:** ✅ Done
+
+---
+
+## 🔧 Hardware Robustness Edge Cases (Sensors & Mechanics)
 
 ### EC-95: Sticky Reed Switch (Vibration False Alarm)
 **Scenario:** Pothole jars the magnetic reed switch for 200ms, triggering false "Tamper Alert" while driving.
@@ -2496,235 +2502,5 @@ bool safeI2CWrite(uint8_t addr, uint8_t* data, size_t len) {
 
 ---
 
-### EC-89: Zombie Token (Auth Expiry Mid-Delivery)
-**Scenario:** Rider's Firebase authentication token expires mid-delivery (typical 1-hour Firebase token limit). Box operations fail with 401 errors.
-
-| Symptom | Impact |
-|---------|--------|
-| API calls return 401 Unauthorized | Rider can't update delivery status |
-| Photo uploads fail silently | Missing proof of delivery |
-| Real-time sync stops | Customer loses tracking |
-
-| Solution | Implementation |
-|----------|----------------|
-| Proactive refresh | Check token age every 5 minutes, refresh at 55 min |
-| Exponential backoff | Retry failed refreshes: 1s, 2s, 4s, ... max 16s |
-| Force re-login | After 3 failed attempts, prompt rider to sign in again |
-| Session expiry banner | UI warning when token is expiring |
-
-**Configuration:**
-| Constant | Value | Purpose |
-|----------|-------|---------|
-| `CHECK_INTERVAL_MS` | 300000 | 5 minute check interval |
-| `REFRESH_THRESHOLD_MS` | 3300000 | Refresh when older than 55 min |
-| `TOKEN_VALIDITY_MS` | 3600000 | Token valid for 60 min |
-| `MAX_REFRESH_ATTEMPTS` | 3 | Max retries before force re-login |
-
-**Implementation Files:**
-- Mobile: `tokenRefreshService.ts`, `SessionExpiryBanner.tsx`
-- Web: `TokenHealthBanner.tsx`, `firebaseClient.ts`
-- Tests: `EC89TokenRefresh.test.ts`, `ec89TokenRefresh.test.ts`
-
-**Status:** ✅ Done
-
----
-
-### EC-90: Brownout Actuation (Low Voltage Lockout)
-**Scenario:** Battery low, firing solenoid causes voltage sag that reboots ESP32 mid-unlock. Lock stays closed, customer locked out.
-
-| Symptom | Impact |
-|---------|--------|
-| ESP32 reboots when solenoid fires | Lock actuation incomplete |
-| Voltage drops from 11.8V to 10V | Brownout reset triggered |
-| Customer enters correct OTP | Box never unlocks |
-
-| Solution | Implementation |
-|----------|----------------|
-| Pre-check voltage | Read ADC before solenoid actuation |
-| Block at critical | If V < 11.5V, refuse unlock with message |
-| Warning threshold | Show "Low Battery" at V < 12.0V |
-| Graceful feedback | Display shows battery status, explain why unlock blocked |
-
-**Voltage Thresholds:**
-| Constant | Value | Status |
-|----------|-------|--------|
-| `VOLTAGE_HEALTHY` | ≥12.0V | Normal operation |
-| `VOLTAGE_WARNING` | 11.5-12.0V | Low battery warning |
-| `VOLTAGE_CRITICAL` | <11.5V | Block solenoid |
-| `VOLTAGE_DEAD` | <10.5V | System shutdown |
-
-**ADC Configuration:**
-```cpp
-#define BATTERY_PIN 34
-#define ADC_RESOLUTION 4095
-#define VOLTAGE_DIVIDER_RATIO 5.7
-#define VREF 3.3
-```
-
-**Implementation Files:**
-- Hardware: `LockControl.h` (`readBatteryVoltage()`, `unlockSafe()`)
-- Mobile: `LowBatteryBanner.tsx`, `firebaseClient.ts`
-- Web: `HardwareStatusPanel.tsx`, `firebaseClient.ts`
-- Tests: `EC90BrownoutActuation.test.ts`, `ec90PowerState.test.ts`, `test_edge_cases.h`
-
-**Status:** ✅ Done
-
----
-
-### EC-91: Priority Interrupt Crash (Resource Conflict)
-**Scenario:** Camera writing to SD/SPIFFS while user mashes keypad. Interrupt storm causes WDT reset.
-
-| Symptom | Impact |
-|---------|--------|
-| Keypad interrupts during SPIFFS write | Data corruption |
-| Camera capture + rapid key presses | Watchdog reset |
-| System reboots repeatedly | Unusable during photo capture |
-
-| Solution | Implementation |
-|----------|----------------|
-| Critical sections | Disable keypad interrupts during camera/SPIFFS ops |
-| Event queue | Queue key events during critical section (max 10) |
-| Watchdog feeding | Feed WDT during long operations |
-| Graceful recovery | Process queued events after critical section ends |
-
-**Configuration:**
-| Constant | Value | Purpose |
-|----------|-------|---------|
-| `MAX_QUEUE_SIZE` | 10 | Maximum queued key events |
-| `CAMERA_CAPTURE_DURATION_MS` | 500 | Typical capture time |
-| `SPIFFS_WRITE_DURATION_MS` | 200 | Typical write time |
-| `SAFETY_TIMEOUT_MS` | 3000 | Max critical section duration |
-
-**Critical Section Types:**
-```cpp
-typedef enum {
-    CRITICAL_NONE = 0,
-    CRITICAL_CAMERA_CAPTURE = 1,
-    CRITICAL_SPIFFS_WRITE = 2,
-    CRITICAL_FIREBASE_UPLOAD = 3,
-    CRITICAL_OTP_VALIDATION = 4
-} CriticalSectionType;
-```
-
-**Implementation Files:**
-- Hardware: `ResourceLock.h`
-- Mobile: `firebaseClient.ts`, `HardwareStatusScreen.tsx`
-- Web: `HardwareStatusPanel.tsx`, `firebaseClient.ts`
-- Tests: `EC91ResourceConflict.test.ts`, `ec91ResourceConflict.test.ts`, `test_edge_cases.h`
-
-**Status:** ✅ Done
-
----
-
-### EC-92: Urban Canyon Flicker
-**Scenario:** Rider enters urban area with tall buildings (Makati, BGC). GPS signal bounces between building walls, causing rapid alternation between "inside" and "outside" the delivery geofence.
-
-| Symptom | Impact |
-|---------|--------|
-| GPS accuracy drops (HDOP > 5.0) | False state transitions |
-| Location jumps 50-100m randomly | Customer sees rider "teleporting" |
-| Status flickers ARRIVED ↔ IN_TRANSIT | Poor UX, confusion |
-
-| Solution | Implementation |
-|----------|----------------|
-| Hysteresis threshold | Require 3 consecutive readings inside geofence before ARRIVED |
-| Time dampening | Status persists for 10s minimum before transition |
-| HDOP-gated decisions | Ignore location updates when HDOP > 5.0 |
-| Urban zone detection | Expand geofence radius when HDOP indicates urban canyon |
-
-**Configuration:**
-| Constant | Value | Purpose |
-|----------|-------|---------|
-| `HDOP_DEGRADED` | 5.0 | Urban canyon detection threshold |
-| `MIN_SATELLITES` | 4 | Minimum for reliable GPS fix |
-| `HYSTERESIS_SAMPLES` | 3 | Consecutive readings required |
-| `STABILITY_WINDOW_MS` | 10000 | Time window for state persistence |
-
-**Implementation Files:**
-- Hardware: `GeofenceStability.h`
-- Mobile: `geofenceStabilityService.ts`
-- Web: `firebaseClient.ts` (`subscribeToGeofenceStability`)
-
-**Status:** ✅ Done
-
----
-
-### EC-93: Zombie Delivery (Warehouse Return)
-**Scenario:** Rider cannot complete delivery (customer unreachable after 5 attempts). Rider returns to warehouse/depot. System still shows delivery as "IN_TRANSIT" and continues tracking.
-
-| Symptom | Impact |
-|---------|--------|
-| Rider at warehouse coordinates | Delivery appears stuck |
-| No status update sent | Customer confused by warehouse location |
-| Box GPS still transmitting | Unnecessary battery/data usage |
-
-| Solution | Implementation |
-|----------|----------------|
-| Warehouse geofence detection | Define warehouse/depot coordinates |
-| Auto-return status | If inside warehouse geofence for 5 min → "RETURNED_TO_DEPOT" |
-| Customer notification | Push "Your package is returning to sender" |
-| Track termination | Stop live tracking, show "Delivered to depot" state |
-
-**Configuration:**
-| Constant | Value | Purpose |
-|----------|-------|---------|
-| `WAREHOUSE_RETURN_TIMEOUT_MS` | 300000 | 5 minutes in warehouse = return |
-| `DEFAULT_RADIUS_M` | 50 | Warehouse geofence radius |
-
-**Firebase Structure:**
-```
-/hardware/{boxId}/warehouse_return
-├── detected: true
-├── depot_id: "warehouse_manila_01"
-├── entered_at: timestamp
-├── auto_return_triggered: boolean
-└── timestamp: timestamp
-```
-
-**Status:** ✅ Done
-
----
-
-### EC-94: Boundary Hopper (GPS Jitter)
-**Scenario:** Rider stops exactly at geofence boundary (50m). Normal GPS jitter (±10m accuracy) causes position to oscillate in/out of the geofence.
-
-| Symptom | Impact |
-|---------|--------|
-| Position at exactly 50m ± 10m | Boundary oscillation |
-| Status changes every 1-2 seconds | Customer sees "roller coaster" |
-| Multiple ARRIVED/DEPARTED events logged | Spam notifications |
-
-| Solution | Implementation |
-|----------|----------------|
-| Enter hysteresis (inner radius) | Must be < 40m to enter ARRIVED state |
-| Exit hysteresis (outer radius) | Must be > 60m to exit ARRIVED state |
-| Dead zone (40m-60m) | No status change while in dead zone |
-| First-entry lock | Once ARRIVED, stay ARRIVED unless clearly departed |
-
-**Hysteresis Diagram:**
-```
-     0m          40m         50m         60m         100m+
-     |-----------|-----------|-----------|-----------|
-     | INSIDE    |  DEAD     |   DEAD    | OUTSIDE   |
-     | (enter)   |  ZONE     |   ZONE    | (exit)    |
-     |           | (no change)| (no change)|          |
-```
-
-**Configuration:**
-| Constant | Value | Purpose |
-|----------|-------|---------|
-| `INNER_RADIUS_M` | 40 | Must be inside this for ARRIVED |
-| `OUTER_RADIUS_M` | 60 | Must be outside this to exit ARRIVED |
-| `DEFAULT_RADIUS_M` | 50 | Standard geofence (reference only) |
-
-**Test Coverage:**
-- Hardware: `test_ec94_inner_radius_enters_arrived`, `test_ec94_outer_radius_exits_arrived`, `test_ec94_dead_zone_maintains_state`, `test_ec94_boundary_oscillation_stable`
-- Mobile: `GeofenceStability.test.ts` - "EC-94: Boundary Hopper" suite
-- Web: `ec92-94GeofenceStability.test.ts` - "EC-94: Boundary Hopper" suite
-
-**Status:** ✅ Done
-
----
-
-**Total Edge Cases Documented: 108**
+**Total Edge Cases Documented: 102**
 **Total Edge Cases Implemented: 49**
