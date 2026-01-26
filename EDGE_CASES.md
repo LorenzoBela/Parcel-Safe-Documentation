@@ -2060,7 +2060,10 @@ if (reedSwitchOpen) {
 }
 ```
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Implemented in `LockControl.h`
+- 200ms debounce buffer (`REED_SWITCH_DEBOUNCE_MS`)
+- Stable transition logic in `LockControl::update()`
+- Code: `hardware/lib/LockControl/LockControl.h`
 
 ---
 
@@ -2098,7 +2101,12 @@ if (reedSwitchOpen) {
 └── total_lifetime_actuations: int
 ```
 
-**Status:** ⬜ TODO - Enhance existing EC-21 with thermal protection
+**Status:** ✅ Done - Solenoid thermal protection implemented
+- Code: `LockControl.h` thermal model
+- Features:
+  - `SOLENOID_MAX_TEMP_C` (60°C) limit
+  - Cooling rate simulation (`SOLENOID_COOLING_RATE`)
+  - `isOverheated()` check blocks actuation to prevent damage
 
 ---
 
@@ -2140,7 +2148,12 @@ if (reedSwitchOpen) {
 
 **Note:** This aligns with Constitution 1.2 - photo capture is attempted before unlock, but delivery proceeds if camera fails to avoid blocking legitimate customers.
 
-**Status:** ⬜ TODO
+**Status:** ✅ Done - Face scan timeout implemented
+- Code: `PhotoCapture.h` state machine
+- Features:
+  - `FACE_SCAN_TIMEOUT_MS` (10s)
+  - Auto-transition to `FACE_FAILED_FINAL` on timeout
+  - Fallback to manual unlock logic enabled
 
 ---
 
