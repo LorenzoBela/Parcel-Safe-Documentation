@@ -2234,86 +2234,6 @@ admin.database().ref(`deliveries/${deliveryId}`).transaction((delivery) => {
 **Status:** ⬜ TODO
 
 ---
-## Summary: Priority Matrix (Final)
-
-| Priority | Count | Edge Cases |
-|----------|-------|------------|
-| 🔴 P0 (Critical) | 8 | ~~EC-01~~✅, ~~EC-06~~✅, ~~EC-18~~✅, ~~EC-31~~✅, ~~EC-77~~✅, EC-80, ~~EC-81~~✅, EC-99 |
-| 🟡 P1 (High) | 31 | ~~EC-02~~✅, ~~EC-03~~✅, ~~EC-04~~✅, ~~EC-07~~✅, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, ~~EC-78~~✅, ~~EC-82~~✅, ~~EC-83~~✅, ~~EC-84~~✅, ~~EC-85~~✅, ~~EC-86~~✅, ~~EC-89~~✅, ~~EC-90~~✅, ~~EC-91~~✅, EC-96, EC-100, EC-101, EC-103 |
-| 🟢 P2 (Medium) | 28 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, ~~EC-29~~✅, ~~EC-32~~✅, ~~EC-35~~✅, EC-42, ~~EC-46~~✅, ~~EC-47~~✅, ~~EC-49~~✅, EC-54, ~~EC-55~~✅, ~~EC-56~~✅, EC-57, EC-62, ~~EC-66~~✅, ~~EC-68~~✅, EC-69, EC-72, EC-75, ~~EC-79~~✅, EC-87, EC-88, EC-92, EC-93, EC-94, EC-97 |
-| 🔵 P3 (Low) | 35+ | ~~EC-05~~✅, EC-09, ~~EC-10~~✅, ~~EC-11~~✅, ~~EC-12~~✅, EC-13, ~~EC-14~~✅, ~~EC-15~~✅, ~~EC-17~~✅, ~~EC-20~~✅, ~~EC-24~~✅, EC-26-28, EC-30, EC-33-34, ~~EC-36~~✅, EC-37-38, EC-40, EC-43-44, EC-50-53, EC-57-58, ~~EC-60~~✅, EC-63-65, EC-69-76, EC-95, EC-98 |
-
----
-
-## 🆕 Newly Added Edge Cases (EC-89 to EC-103)
-
-| EC# | Name | Category | Priority |
-|-----|------|----------|----------|
-| EC-89 | Zombie Token (Auth Expiry) | 🔐 Auth/Session | P1 |
-| EC-90 | Brownout Actuation | 🔧 Hardware | P1 |
-| EC-91 | Priority Interrupt Crash | 🔧 Hardware | P1 |
-| EC-92 | Urban Canyon Flicker | 📍 Geofence | P2 |
-| EC-93 | Zombie Delivery (Warehouse Return) | 📍 Geofence | P2 |
-| EC-94 | Boundary Hopper (GPS Jitter) | 📍 Geofence | P2 |
-| EC-95 | Sticky Reed Switch (Vibration) | 🔧 Hardware | P3 |
-| EC-96 | Solenoid Heat Fade | 🔧 Hardware | P1 |
-| EC-97 | Face Not Found Timeout | 🔧 Hardware | P2 |
-| EC-98 | Panic Mash (Rapid Taps) | 📱 UI/Input | P3 |
-| EC-99 | Double-Tap Race Condition | ⚡ Concurrency | P0 |
-| EC-100 | Epoch Brick (TLS Cert Validity) | ⏱️ Time/Clock | P1 |
-| EC-101 | Promo Spam DoS (Telco SMS Flood) | 📶 Cellular/Modem | P1 |
-| EC-103 | I2C Bus Hang (Hardware Lockup) | 🔧 Hardware | P1 |
-
----
-
-## ✅ Already Handled (43 Edge Cases)
-
-| Edge Case | How |
-|-----------|-----|
-| EC-01 (No Signal) | Offline OTP + photo queue |
-| EC-02 (Missed Assignment) | BLE OTP transfer from phone to box |
-| EC-03 (Battery Dies) | Prevention(battery UI), Recovery(Firebase sync), Fallback(admin override) |
-| EC-04 (Wrong OTP 5x) | 5min lockout, photo capture, admin reset |
-| EC-05 (Rider Phone Dies) | OTP in tracking link - customer can access from any device |
-| EC-06 (Both Offline) | Full offline-first design |
-| EC-07 (Stale OTP) | 4-hour expiry + revocation on cancellation |
-| EC-10 (Queue Full) | MAX_QUEUED_PHOTOS limit |
-| EC-11 (Not Home) | 5min wait timer + photo + notification + reschedule |
-| EC-12 (Wrong Address) | Rider/customer correction + 50m flexible geofence |
-| EC-14 (Timezones) | UTC + server timestamps |
-| EC-15 (App Killed) | Foreground service (Android) + background location (iOS) + box GPS failover |
-| EC-17 (MITM) | Firebase TLS |
-| EC-18 (Tamper) | Reed switch + photo + lockdown |
-| EC-20 (Delivery ID Collision) | OTP collision prevention + hash verification |
-| EC-21 (Solenoid Closed) | 3x retry + feedback sensor + alerts + physical key fallback |
-| EC-22 (Solenoid Open) | Feedback sensor + out-of-service marking + blocks deliveries |
-| EC-23 (Camera Fail) | 3x retry + metadata fallback + flagged for review |
-| EC-24 (GPS Fail) | Phone GPS redundancy |
-| EC-25 (Brownout/Reboot) | SPIFFS state persistence + auto-resume + reboot event |
-| EC-29 (OTP Shared) | Instant OTP regeneration + 10min cooldown + max 5 regenerations |
-| EC-31 (Disputed) | Photo + GPS + OTP log |
-| EC-32 (Rider Cancels) | Return OTP generation + sender notification |
-| EC-35 (Status Update Lost) | Retry queue + exponential backoff + manual fallback |
-| EC-36 (Multiple Riders) | Device binding + force logout on new login |
-| EC-46 (Clock Skew) | Firebase server time |
-| EC-47 (Duplicate Records) | Idempotency key + upsert logic + duplicate detection |
-| EC-48 (SPIFFS Corruption) | CRC32 checksum + RTC backup + Firebase recovery |
-| EC-49 (Out-of-Order Events) | State machine + valid transition validation |
-| EC-55 (Firebase Quota) | 80%/95% alerts + local caching + fetch interval reduction |
-| EC-56 (Photo Bandwidth) | 800px/60% compression + priority queue + resumable uploads |
-| EC-60 (DST) | UTC everywhere |
-| EC-66 (Customer 2 Riders) | Multi-delivery view + separate OTPs + grouped notifications |
-| EC-68 (Res/Bus Address) | Address type field + dynamic geofence (50m/100m) + building details |
-| EC-77 (Admin Override) | Real-time lock status + keypad buffer clear + remote unlock |
-| EC-78 (Delivery Reassignment) | Push notification + route update + 30s auto-ack |
-| EC-79 (Photo+Cancel Race) | Complete upload + metadata flag + photo retention |
-| EC-81 (Box Stolen) | Theft detection + geofence breach + lockdown + photo burst |
-| EC-82 (Keypad Stuck) | 10s press detection + Firebase status + Critical alerts |
-| EC-83 (Hinge Damage) | Sensor mismatch logic + DAMAGED status + Operation lockout |
-| EC-84 (GPS Obstruction) | HDOP monitoring + alert banner + auto-failover to phone GPS |
-| EC-85 (Package Recall) | Recall command receiver + Status update + Return OTP generation |
-| EC-86 (I2C Display Fail) | LED fallback + buzzer feedback + BLE unlock + maintenance flag |
-
 ---
 
 ## ⏱️ Time & Clock Edge Cases
@@ -2410,7 +2330,7 @@ void flushPromoSMS() {
 
 ---
 
-### EC-103: The "I2C Bus" Hang (Hardware Lockup)
+### EC-102: The "I2C Bus" Hang (Hardware Lockup)
 **Scenario:** Vibration from pothole causes SDA wire on OLED/LCD to touch Ground or disconnect momentarily.
 
 | Symptom | Implementation |
@@ -2499,6 +2419,73 @@ bool safeI2CWrite(uint8_t addr, uint8_t* data, size_t len) {
 | 5 | Timeout | Recover bus (ESP32 specific) |
 
 **Status:** ⬜ TODO
+
+---
+
+## Summary: Priority Matrix (Final)
+
+| Priority | Count | Edge Cases |
+|----------|-------|------------|
+| 🔴 P0 (Critical) | 8 | ~~EC-01~~✅, ~~EC-06~~✅, ~~EC-18~~✅, ~~EC-31~~✅, ~~EC-77~~✅, EC-80, ~~EC-81~~✅, EC-99 |
+| 🟡 P1 (High) | 31 | ~~EC-02~~✅, ~~EC-03~~✅, ~~EC-04~~✅, ~~EC-07~~✅, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, ~~EC-78~~✅, ~~EC-82~~✅, ~~EC-83~~✅, ~~EC-84~~✅, ~~EC-85~~✅, ~~EC-86~~✅, ~~EC-89~~✅, ~~EC-90~~✅, ~~EC-91~~✅, EC-96, EC-100, EC-101, EC-102 |
+| 🟢 P2 (Medium) | 28 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, ~~EC-29~~✅, ~~EC-32~~✅, ~~EC-35~~✅, EC-42, ~~EC-46~~✅, ~~EC-47~~✅, ~~EC-49~~✅, EC-54, ~~EC-55~~✅, ~~EC-56~~✅, EC-57, EC-62, ~~EC-66~~✅, ~~EC-68~~✅, EC-69, EC-72, EC-75, ~~EC-79~~✅, EC-87, EC-88, EC-92, EC-93, EC-94, EC-97 |
+| 🔵 P3 (Low) | 35+ | ~~EC-05~~✅, EC-09, ~~EC-10~~✅, ~~EC-11~~✅, ~~EC-12~~✅, EC-13, ~~EC-14~~✅, ~~EC-15~~✅, ~~EC-17~~✅, ~~EC-20~~✅, ~~EC-24~~✅, EC-26-28, EC-30, EC-33-34, ~~EC-36~~✅, EC-37-38, EC-40, EC-43-44, EC-50-53, EC-57-58, ~~EC-60~~✅, EC-63-65, EC-69-76, EC-95, EC-98 |
+
+---
+
+## ✅ Already Handled (49 Edge Cases)
+
+| Edge Case | How |
+|-----------|-----|
+| EC-01 (No Signal) | Offline OTP + photo queue |
+| EC-02 (Missed Assignment) | BLE OTP transfer from phone to box |
+| EC-03 (Battery Dies) | Prevention(battery UI), Recovery(Firebase sync), Fallback(admin override) |
+| EC-04 (Wrong OTP 5x) | 5min lockout, photo capture, admin reset |
+| EC-05 (Rider Phone Dies) | OTP in tracking link - customer can access from any device |
+| EC-06 (Both Offline) | Full offline-first design |
+| EC-07 (Stale OTP) | 4-hour expiry + revocation on cancellation |
+| EC-10 (Queue Full) | MAX_QUEUED_PHOTOS limit |
+| EC-11 (Not Home) | 5min wait timer + photo + notification + reschedule |
+| EC-12 (Wrong Address) | Rider/customer correction + 50m flexible geofence |
+| EC-14 (Timezones) | UTC + server timestamps |
+| EC-15 (App Killed) | Foreground service (Android) + background location (iOS) + box GPS failover |
+| EC-17 (MITM) | Firebase TLS |
+| EC-18 (Tamper) | Reed switch + photo + lockdown |
+| EC-20 (Delivery ID Collision) | OTP collision prevention + hash verification |
+| EC-21 (Solenoid Closed) | 3x retry + feedback sensor + alerts + physical key fallback |
+| EC-22 (Solenoid Open) | Feedback sensor + out-of-service marking + blocks deliveries |
+| EC-23 (Camera Fail) | 3x retry + metadata fallback + flagged for review |
+| EC-24 (GPS Fail) | Phone GPS redundancy |
+| EC-25 (Brownout/Reboot) | SPIFFS state persistence + auto-resume + reboot event |
+| EC-29 (OTP Shared) | Instant OTP regeneration + 10min cooldown + max 5 regenerations |
+| EC-31 (Disputed) | Photo + GPS + OTP log |
+| EC-32 (Rider Cancels) | Return OTP generation + sender notification |
+| EC-35 (Status Update Lost) | Retry queue + exponential backoff + manual fallback |
+| EC-36 (Multiple Riders) | Device binding + force logout on new login |
+| EC-46 (Clock Skew) | Firebase server time |
+| EC-47 (Duplicate Records) | Idempotency key + upsert logic + duplicate detection |
+| EC-48 (SPIFFS Corruption) | CRC32 checksum + RTC backup + Firebase recovery |
+| EC-49 (Out-of-Order Events) | State machine + valid transition validation |
+| EC-55 (Firebase Quota) | 80%/95% alerts + local caching + fetch interval reduction |
+| EC-56 (Photo Bandwidth) | 800px/60% compression + priority queue + resumable uploads |
+| EC-60 (DST) | UTC everywhere |
+| EC-66 (Customer 2 Riders) | Multi-delivery view + separate OTPs + grouped notifications |
+| EC-68 (Res/Bus Address) | Address type field + dynamic geofence (50m/100m) + building details |
+| EC-77 (Admin Override) | Real-time lock status + keypad buffer clear + remote unlock |
+| EC-78 (Delivery Reassignment) | Push notification + route update + 30s auto-ack |
+| EC-79 (Photo+Cancel Race) | Complete upload + metadata flag + photo retention |
+| EC-81 (Box Stolen) | Theft detection + geofence breach + lockdown + photo burst |
+| EC-82 (Keypad Stuck) | 10s press detection + Firebase status + Critical alerts |
+| EC-83 (Hinge Damage) | Sensor mismatch logic + DAMAGED status + Operation lockout |
+| EC-84 (GPS Obstruction) | HDOP monitoring + alert banner + auto-failover to phone GPS |
+| EC-85 (Package Recall) | Recall command receiver + Status update + Return OTP generation |
+| EC-86 (I2C Display Fail) | LED fallback + buzzer feedback + BLE unlock + maintenance flag |
+| EC-89 (Zombie Token) | Proactive refresh + backoff + session expiry banner |
+| EC-90 (Brownout Actuation) | Voltage pre-check + lockout < 11.5V + low battery warning |
+| EC-91 (Priority Interrupt) | Critical sections + event queue + WDT feeding |
+| EC-92 (Urban Canyon) | Hysteresis (3 samples) + time dampening (10s) + HDOP gating |
+| EC-93 (Warehouse Return) | Warehouse geofence detection + auto-return status |
+| EC-94 (Boundary Hopper) | Inner/Outer radius hysteresis + dead zone (40m-60m) |
 
 ---
 
