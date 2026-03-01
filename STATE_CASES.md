@@ -138,6 +138,24 @@ Comprehensive list of state transition test cases for the Parcel-Safe Smart Top 
 
 ---
 
+### SC-DEL-16: ARRIVED → CANCELLED (Customer No-Show)
+**Trigger:** Grace period expires (10 min), rider confirms no-show
+**Precondition:** Status = ARRIVED for >10 minutes, customer absent
+**Action:** Status updated to CANCELLED, cancellation penalty applied, notifications sent
+**Postcondition:** Status = CANCELLED, rider returned to AVAILABLE, penalty record created
+**Validation:** Penalty logged in /penalties/pending, both parties notified, audit log written
+
+---
+
+### SC-DEL-17: ARRIVED — Pickup/Dropoff Edit Blocked
+**Trigger:** Any attempt to change pickup or dropoff coordinates
+**Precondition:** Status = ARRIVED (or any locked status)
+**Action:** Request rejected — feature permanently removed
+**Postcondition:** Status unchanged, coordinates immutable
+**Validation:** No address update UI exists, API guards reject any coordinate mutations
+
+---
+
 ## 🔒 Box Lock State Machine (SC-LOCK)
 
 ### SC-LOCK-01: LOCKED → UNLOCKING
