@@ -308,6 +308,9 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 - [ ] Display sunlight visibility modes (EC-87)
 - [ ] Display burn-in prevention (EC-88)
 
+- [x] Remote pairing proximity gate (EC-98) ✅ Unit tests pass
+- [x] Rider-box drift detection and auto-unpair (EC-98) ✅ Unit tests pass
+
 ---
 
 ## 🔵 Security & Attack Vectors
@@ -526,6 +529,7 @@ Complete list of edge cases that must be bulletproofed for a production-ready de
 | EC-82 to EC-85 | 🛠️ **Hardware Degradation** (Keypad, Hinge, GPS, Recall) (NEW) | 4 | ✅ Done |
 | EC-86 to EC-88 | 🖥️ **I2C Display** (Failure, Sunlight, Burn-in) (NEW) | 3 | ~~1~~✅ / 2 TODO |
 | EC-89 | 📷 **Low-Light Face Detection** (Night, Basement, Tunnels) (NEW) | 1 | ✅ Done (EC-97) |
+| EC-98 | 🛰️ **Remote Box Pairing** (Rider-Box distance mismatch) (NEW) | 1 | ✅ Done |
 
 ---
 
@@ -2617,14 +2621,55 @@ CaptureResult captureWithLowLightHandling() {
 
 ---
 
+## 🛰️ Pairing & Proximity
+
+### EC-98: Remote Box Pairing (Rider-Box Distance Mismatch)
+**Scenario:** A rider saves a box's QR code on their phone and pairs with it while being cities apart. This causes conflicting location data — the rider's phone GPS writes one city while the box GPS writes another — fragmenting the tracking experience and breaking delivery logic.
+
+| Layer | Solution | Threshold | Implementation |
+|-------|----------|-----------|----------------|
+| **Gate** | Proximity check on pairing | 500m max | Reject pairing if rider's GPS is >500m from box's last known location |
+| **Monitor** | Drift warning | 5 km | Show amber banner: "You're far from your box" |
+| **Monitor** | Auto-unpair | 50 km (sustained) | Revoke pairing after 3 consecutive checks exceeding 50km |
+
+**Safeguard 1 — Proximity Gate (on pair):**
+| Component | Detail |
+|-----------|--------|
+| Rider GPS | `expo-location` `getCurrentPositionAsync()` with `Accuracy.Balanced` |
+| Box GPS | `fetchBoxLocationOnce()` one-time read from Firebase RTDB |
+| Validation | `validatePairingProximity()` in `boxPairingService.ts` |
+| Distance math | Haversine via `calculateDistanceMeters()` from `geoUtils.ts` |
+| Admin bypass | `skipProximityCheck: true` for remote fleet management |
+| No box GPS | If box has never reported location, pairing proceeds (new box scenario) |
+
+**Safeguard 2 — Drift Monitor (ongoing):**
+| Component | Detail |
+|-----------|--------|
+| Check interval | Every 60s (piggybacks on existing expiration monitor) |
+| Rider GPS | `Location.getLastKnownPositionAsync()` (cheap, no fresh fix) |
+| Box GPS | `fetchBoxLocationOnce()` |
+| Warning zone | 5–50 km → `DRIFT_WARNING` event → amber banner in UI |
+| Critical zone | >50 km → increment counter; 3 consecutive → `DRIFT_EXPIRED` → auto-unpair |
+| Counter reset | Distance drops below 5 km → counter resets to 0 |
+| Non-blocking | Drift check errors are caught silently; never blocks the expiration monitor |
+
+**Status:** ✅ Done - Full implementation
+- Mobile: `boxPairingService.ts` — `validatePairingProximity()`, drift monitor in `startPairingExpirationMonitor()`
+- Mobile: `firebaseClient.ts` — `fetchBoxLocationOnce()` for one-time box GPS read
+- Mobile: `PairBoxScreen.tsx` — Location fetch on pair, drift warning banner, auto-unpair alerts
+- Tests: `PairingProximity.test.ts` — 14 tests covering proximity, drift thresholds, sustained checks, counter reset
+- Constants: `PAIRING_MAX_DISTANCE_M = 500`, `DRIFT_WARNING_THRESHOLD_M = 5000`, `DRIFT_UNPAIR_THRESHOLD_M = 50000`
+
+---
+
 ## Summary: Priority Matrix (Final)
 
 | Priority | Count | Edge Cases |
 |----------|-------|------------|
 | 🔴 P0 (Critical) | 8 | ~~EC-01~~✅, ~~EC-06~~✅, ~~EC-18~~✅, ~~EC-31~~✅, ~~EC-77~~✅, EC-80, ~~EC-81~~✅, EC-99 |
-| 🟡 P1 (High) | 31 | ~~EC-02~~✅, ~~EC-03~~✅, ~~EC-04~~✅, ~~EC-07~~✅, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, ~~EC-78~~✅, ~~EC-82~~✅, ~~EC-83~~✅, ~~EC-84~~✅, ~~EC-85~~✅, ~~EC-86~~✅, ~~EC-89~~✅, ~~EC-90~~✅, ~~EC-91~~✅, ~~EC-96~~✅, EC-100, EC-101, EC-102 |
+| 🟡 P1 (High) | 32 | ~~EC-02~~✅, ~~EC-03~~✅, ~~EC-04~~✅, ~~EC-07~~✅, EC-19, ~~EC-21~~✅, ~~EC-22~~✅, EC-39, EC-41, EC-45, ~~EC-48~~✅, EC-59, EC-61, EC-67, EC-70, ~~EC-78~~✅, ~~EC-82~~✅, ~~EC-83~~✅, ~~EC-84~~✅, ~~EC-85~~✅, ~~EC-86~~✅, ~~EC-89~~✅, ~~EC-90~~✅, ~~EC-91~~✅, ~~EC-96~~✅, ~~EC-98~~✅, EC-100, EC-101, EC-102 |
 | 🟢 P2 (Medium) | 28 | EC-08, EC-16, ~~EC-23~~✅, ~~EC-25~~✅, ~~EC-29~~✅, ~~EC-32~~✅, ~~EC-35~~✅, EC-42, ~~EC-46~~✅, ~~EC-47~~✅, ~~EC-49~~✅, EC-54, ~~EC-55~~✅, ~~EC-56~~✅, EC-57, EC-62, ~~EC-66~~✅, ~~EC-68~~✅, EC-69, EC-72, EC-75, ~~EC-79~~✅, EC-87, EC-88, EC-92, EC-93, EC-94, ~~EC-97~~✅ |
-| 🔵 P3 (Low) | 35+ | ~~EC-05~~✅, EC-09, ~~EC-10~~✅, ~~EC-11~~✅, ~~EC-12~~✅, EC-13, ~~EC-14~~✅, ~~EC-15~~✅, ~~EC-17~~✅, ~~EC-20~~✅, ~~EC-24~~✅, EC-26-28, EC-30, EC-33-34, ~~EC-36~~✅, EC-37-38, EC-40, EC-43-44, EC-50-53, EC-57-58, ~~EC-60~~✅, EC-63-65, EC-69-76, ~~EC-95~~✅, EC-98 |
+| 🔵 P3 (Low) | 35+ | ~~EC-05~~✅, EC-09, ~~EC-10~~✅, ~~EC-11~~✅, ~~EC-12~~✅, EC-13, ~~EC-14~~✅, ~~EC-15~~✅, ~~EC-17~~✅, ~~EC-20~~✅, ~~EC-24~~✅, EC-26-28, EC-30, EC-33-34, ~~EC-36~~✅, EC-37-38, EC-40, EC-43-44, EC-50-53, EC-57-58, ~~EC-60~~✅, EC-63-65, EC-69-76, ~~EC-95~~✅ |
 
 ---
 
@@ -2684,8 +2729,9 @@ CaptureResult captureWithLowLightHandling() {
 | EC-95 (Sticky Reed Switch) | Vibration filter (200ms debounce) + stable transition logic |
 | EC-96 (Solenoid Heat Fade) | Thermal tracking + cooling model + overheat lockout |
 | EC-97 (Face Not Found) | Timeout (10s) + max retries (3) + fallback logic |
+| EC-98 (Remote Box Pairing) | Proximity gate (500m) + drift warning (5km) + auto-unpair (50km) + admin bypass |
 
 ---
 
-**Total Edge Cases Documented: 102**
-**Total Edge Cases Implemented: 52**
+**Total Edge Cases Documented: 103**
+**Total Edge Cases Implemented: 53**
