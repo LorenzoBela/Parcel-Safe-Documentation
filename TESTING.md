@@ -31,6 +31,80 @@ $env:PATH = "$PWD\tools\w64devkit\bin;$env:PATH"
 
 ---
 
+## Manual Verification Checklist
+
+Critical reliability scenarios that must be verified manually in addition to automated tests.
+
+### MV-OFFLINE-01: Extended Offline Recovery (30+ min)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Disable WiFi and mobile data | App transitions to offline behavior |
+| 2 | Perform status update, location update, and box command | Queue entries are stored locally |
+| 3 | Keep offline for 30+ minutes | No crash, queue preserved |
+| 4 | Re-enable network while app is active | Foreground resume pipeline triggers queue drain |
+| 5 | Observe logs/telemetry | Queue sync completes with no duplicate side effects |
+
+Pass criteria: All queued actions flush successfully after reconnection and do not duplicate on backend.
+
+### MV-BACKGROUND-02: Long Background Resume (1+ hour)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Open a delivery flow screen | Screen context loaded |
+| 2 | Put app in background for 60+ minutes | App remains recoverable |
+| 3 | Return via app icon | Resume pipeline runs and listener health recovers |
+| 4 | Return via notification tap | App lands on expected destination screen |
+| 5 | Verify data freshness | Stale data replaced by fresh data after resume sync |
+
+Pass criteria: No blank state loops, no lost context, and rider listener is healthy after resume.
+
+### MV-WEAKLINK-03: Critical Action Under Weak Link
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Simulate weak connectivity (high latency/packet loss) | App remains responsive |
+| 2 | Trigger critical hardware action (unlock/lock) | Explicit pending state shown |
+| 3 | Observe UI while request is inflight | No optimistic success shown before confirmation |
+| 4 | Restore normal connectivity | Action confirms success or clear failure |
+
+Pass criteria: Critical actions never show false success under poor network conditions.
+
+### MV-DEEPLINK-04: Cold-Start Notification Routing
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Kill app completely | Process stopped |
+| 2 | Tap a delivery-related notification | App cold-starts |
+| 3 | Observe startup navigation | App navigates to target route (track/detail/alert) |
+| 4 | Repeat with tamper/security notification | App navigates to security target route |
+
+Pass criteria: Notification destination is correct on cold start with no duplicate navigation.
+
+### MV-RECONNECT-05: Mid-Transaction Reconnect
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Start a delivery mutation | Request in progress |
+| 2 | Disable network mid-flight | Request fails and queues/retry state updates |
+| 3 | Re-enable network | Retry/replay occurs through queued pipeline |
+| 4 | Validate backend state | Single final state transition only |
+
+Pass criteria: Reconnect drains pending actions once, with idempotent backend outcomes.
+
+### Telemetry Validation Requirements
+
+During manual checks, verify observability tags are present for queue operations:
+
+- `queue_uuid`
+- `action_type`
+- `flush_stage`
+- `idempotency_result`
+
+These tags must appear in queue enqueue/flush/retry/error paths and resume-stage flush events.
+
+---
+
 ## Test Coverage Summary
 
 | Component | Test Files | Tests | Documented Cases Covered | Coverage |
