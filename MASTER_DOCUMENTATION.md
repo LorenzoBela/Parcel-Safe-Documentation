@@ -36,6 +36,7 @@
 | [NEGATIVE_CASES.md](./NEGATIVE_CASES.md) | Error handling, invalid inputs | 120 | 📄 Reference |
 | [STATE_CASES.md](./STATE_CASES.md) | State machine transitions | 109 | 📄 Reference |
 | [TESTING.md](./TESTING.md) | Test execution & coverage | - | 📄 Reference |
+| [ADMIN_PARITY_TODO.md](./ADMIN_PARITY_TODO.md) | Admin web-to-mobile parity execution tracker | - | ✅ Active Tracker |
 
 ### Case Counts by Category
 

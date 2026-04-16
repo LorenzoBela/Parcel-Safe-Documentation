@@ -14,6 +14,18 @@ Comprehensive testing documentation for the Parcel-Safe Smart Top Box delivery s
 ./scripts/run-all-tests.sh   # Linux/Mac
 ```
 
+### Run Reliability/Canary Focused Suites
+
+```bash
+# Windows PowerShell
+./scripts/run-all-tests.ps1 -Component all -Reliability
+
+# Linux/Mac
+./scripts/run-all-tests.sh all --reliability
+```
+
+This mode prioritizes brownout/edge/state-machine coverage and native hardware safety suites for bench canary validation.
+
 ### Run Individual Test Suites
 
 ```bash
@@ -102,6 +114,34 @@ During manual checks, verify observability tags are present for queue operations
 - `idempotency_result`
 
 These tags must appear in queue enqueue/flush/retry/error paths and resume-stage flush events.
+
+---
+
+## Reliability Canary Workflow
+
+Use this sequence for outage-hardening validation before field deployment.
+
+### Bench Canary Scenarios
+
+1. Brownout during unlock and during command ACK write.
+2. Dead-zone traversal (AP unavailable) then return to coverage.
+3. CAM unreachable while controller and proxy are online.
+4. Controller unreachable while CAM and proxy are online.
+5. LTE/Firebase outage with buffered command and event paths.
+
+### Promotion Gates
+
+1. Recovery success rate is stable across repeated outage cycles.
+2. Duplicate command execution rate is zero.
+3. Queue/pending payload loss rate is zero.
+4. Unlock latency and reconnect latency remain within accepted bounds.
+5. Flash write rate remains within wear budget assumptions.
+
+### Rollout Stages
+
+1. Bench canary batch only.
+2. Limited field canary batch.
+3. Full rollout after gate sign-off.
 
 ---
 
